@@ -1,6 +1,6 @@
+import type { FieldOutputTemplate, FieldType } from 'features/nodes/types/field';
+import type { InvocationFieldSchema } from 'features/nodes/types/openapi';
 import { startCase } from 'lodash-es';
-import { FieldOutputTemplate, FieldType } from 'features/nodes/types/field';
-import { InvocationFieldSchema } from 'features/nodes/types/openapi';
 
 export const buildFieldOutputTemplate = (
   fieldSchema: InvocationFieldSchema,
@@ -9,7 +9,7 @@ export const buildFieldOutputTemplate = (
 ): FieldOutputTemplate => {
   const { title, description, ui_hidden, ui_type, ui_order } = fieldSchema;
 
-  const fieldOutputTemplate: FieldOutputTemplate = {
+  const template: FieldOutputTemplate = {
     fieldKind: 'output',
     name: fieldName,
     title: title ?? (fieldName ? startCase(fieldName) : ''),
@@ -20,5 +20,5 @@ export const buildFieldOutputTemplate = (
     ui_order,
   };
 
-  return fieldOutputTemplate;
+  return template;
 };

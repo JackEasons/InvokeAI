@@ -1,28 +1,19 @@
-import { createSelector } from '@reduxjs/toolkit';
-import { stateSelector } from 'app/store/store';
+import { createMemoizedSelector } from 'app/store/createMemoizedSelector';
 import { useAppSelector } from 'app/store/storeHooks';
-import { defaultSelectorOptions } from 'app/store/util/defaultMemoizeOptions';
+import { selectFieldInputInstance, selectNodesSlice } from 'features/nodes/store/selectors';
+import type { FieldInputInstance } from 'features/nodes/types/field';
 import { useMemo } from 'react';
-import { isInvocationNode } from 'features/nodes/types/invocation';
 
-export const useFieldInputInstance = (nodeId: string, fieldName: string) => {
+export const useFieldInputInstance = (nodeId: string, fieldName: string): FieldInputInstance | null => {
   const selector = useMemo(
     () =>
-      createSelector(
-        stateSelector,
-        ({ nodes }) => {
-          const node = nodes.nodes.find((node) => node.id === nodeId);
-          if (!isInvocationNode(node)) {
-            return;
-          }
-          return node.data.inputs[fieldName];
-        },
-        defaultSelectorOptions
-      ),
+      createMemoizedSelector(selectNodesSlice, (nodes) => {
+        return selectFieldInputInstance(nodes, nodeId, fieldName);
+      }),
     [fieldName, nodeId]
   );
 
-  const fieldTemplate = useAppSelector(selector);
+  const fieldData = useAppSelector(selector);
 
-  return fieldTemplate;
+  return fieldData;
 };

@@ -1,6 +1,6 @@
-import { useTranslation } from 'react-i18next';
-import { FieldType } from 'features/nodes/types/field';
+import { type FieldType, isCollection, isSingleOrCollection } from 'features/nodes/types/field';
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 
 export const useFieldTypeName = (fieldType?: FieldType): string => {
   const { t } = useTranslation();
@@ -10,13 +10,13 @@ export const useFieldTypeName = (fieldType?: FieldType): string => {
       return '';
     }
     const { name } = fieldType;
-    if (fieldType.isCollection) {
+    if (isCollection(fieldType)) {
       return t('nodes.collectionFieldType', { name });
     }
-    if (fieldType.isCollectionOrScalar) {
+    if (isSingleOrCollection(fieldType)) {
       return t('nodes.collectionOrScalarFieldType', { name });
     }
-    return name;
+    return t('nodes.singleFieldType', { name });
   }, [fieldType, t]);
 
   return name;

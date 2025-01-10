@@ -1,21 +1,17 @@
-import {
-  NumberDecrementStepper,
-  NumberIncrementStepper,
-  NumberInput,
-  NumberInputField,
-  NumberInputStepper,
-} from '@chakra-ui/react';
+import { CompositeNumberInput } from '@invoke-ai/ui-library';
+import { NUMPY_RAND_MAX } from 'app/constants';
 import { useAppDispatch } from 'app/store/storeHooks';
-import { numberStringRegex } from 'common/components/IAINumberInput';
 import { fieldNumberValueChanged } from 'features/nodes/store/nodesSlice';
-import {
+import type {
   FloatFieldInputInstance,
   FloatFieldInputTemplate,
   IntegerFieldInputInstance,
   IntegerFieldInputTemplate,
 } from 'features/nodes/types/field';
-import { FieldComponentProps } from './types';
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { isNil } from 'lodash-es';
+import { memo, useCallback, useMemo } from 'react';
+
+import type { FieldComponentProps } from './types';
 
 const NumberFieldInputComponent = (
   props: FieldComponentProps<
@@ -25,54 +21,68 @@ const NumberFieldInputComponent = (
 ) => {
   const { nodeId, field, fieldTemplate } = props;
   const dispatch = useAppDispatch();
-  const [valueAsString, setValueAsString] = useState<string>(
-    String(field.value)
-  );
-  const isIntegerField = useMemo(
-    () => fieldTemplate.type.name === 'IntegerField',
-    [fieldTemplate.type]
-  );
+  const isIntegerField = useMemo(() => fieldTemplate.type.name === 'IntegerField', [fieldTemplate.type]);
 
   const handleValueChanged = useCallback(
-    (v: string) => {
-      setValueAsString(v);
-      // This allows negatives and decimals e.g. '-123', `.5`, `-0.2`, etc.
-      if (!v.match(numberStringRegex)) {
-        // Cast the value to number. Floor it if it should be an integer.
-        dispatch(
-          fieldNumberValueChanged({
-            nodeId,
-            fieldName: field.name,
-            value: isIntegerField ? Math.floor(Number(v)) : Number(v),
-          })
-        );
-      }
+    (v: number) => {
+      dispatch(
+        fieldNumberValueChanged({
+          nodeId,
+          fieldName: field.name,
+          value: isIntegerField ? Math.floor(Number(v)) : Number(v),
+        })
+      );
     },
     [dispatch, field.name, isIntegerField, nodeId]
   );
 
-  useEffect(() => {
-    if (
-      !valueAsString.match(numberStringRegex) &&
-      field.value !== Number(valueAsString)
-    ) {
-      setValueAsString(String(field.value));
+  const min = useMemo(() => {
+    let min = -NUMPY_RAND_MAX;
+    if (!isNil(fieldTemplate.minimum)) {
+      min = fieldTemplate.minimum;
     }
-  }, [field.value, valueAsString]);
+    if (!isNil(fieldTemplate.exclusiveMinimum)) {
+      min = fieldTemplate.exclusiveMinimum + 0.01;
+    }
+    return min;
+  }, [fieldTemplate.exclusiveMinimum, fieldTemplate.minimum]);
+
+  const max = useMemo(() => {
+    let max = NUMPY_RAND_MAX;
+    if (!isNil(fieldTemplate.maximum)) {
+      max = fieldTemplate.maximum;
+    }
+    if (!isNil(fieldTemplate.exclusiveMaximum)) {
+      max = fieldTemplate.exclusiveMaximum - 0.01;
+    }
+    return max;
+  }, [fieldTemplate.exclusiveMaximum, fieldTemplate.maximum]);
+
+  const step = useMemo(() => {
+    if (isNil(fieldTemplate.multipleOf)) {
+      return isIntegerField ? 1 : 0.1;
+    }
+    return fieldTemplate.multipleOf;
+  }, [fieldTemplate.multipleOf, isIntegerField]);
+
+  const fineStep = useMemo(() => {
+    if (isNil(fieldTemplate.multipleOf)) {
+      return isIntegerField ? 1 : 0.01;
+    }
+    return fieldTemplate.multipleOf;
+  }, [fieldTemplate.multipleOf, isIntegerField]);
 
   return (
-    <NumberInput
+    <CompositeNumberInput
+      defaultValue={fieldTemplate.default}
       onChange={handleValueChanged}
-      value={valueAsString}
-      step={isIntegerField ? 1 : 0.1}
-      precision={isIntegerField ? 0 : 3}
-    >
-      <NumberInputField className="nodrag" />
-      <NumberInputStepper>
-        <NumberIncrementStepper />
-        <NumberDecrementStepper />
-      </NumberInputStepper>
-    </NumberInput>
+      value={field.value}
+      min={min}
+      max={max}
+      step={step}
+      fineStep={fineStep}
+      className="nodrag"
+    />
   );
 };
 

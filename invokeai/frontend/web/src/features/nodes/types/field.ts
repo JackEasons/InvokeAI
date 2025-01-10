@@ -1,16 +1,6 @@
 import { z } from 'zod';
-import {
-  zBoardField,
-  zColorField,
-  zControlNetModelField,
-  zIPAdapterModelField,
-  zImageField,
-  zLoRAModelField,
-  zMainOrONNXModelField,
-  zSchedulerField,
-  zT2IAdapterModelField,
-  zVAEModelField,
-} from './common';
+
+import { zBoardField, zColorField, zImageField, zModelIdentifierField, zSchedulerField } from './common';
 
 /**
  * zod schemas & inferred types for fields.
@@ -39,28 +29,13 @@ import {
 /** */
 
 // #region Base schemas & misc
-export const zFieldInput = z.enum(['connection', 'direct', 'any']);
-export type FieldInput = z.infer<typeof zFieldInput>;
-
-export const zFieldUIComponent = z.enum(['none', 'textarea', 'slider']);
-export type FieldUIComponent = z.infer<typeof zFieldUIComponent>;
-
-export const zFieldInstanceBase = z.object({
-  id: z.string().trim().min(1),
+const zFieldInput = z.enum(['connection', 'direct', 'any']);
+const zFieldUIComponent = z.enum(['none', 'textarea', 'slider']);
+const zFieldInputInstanceBase = z.object({
   name: z.string().trim().min(1),
-});
-export const zFieldInputInstanceBase = zFieldInstanceBase.extend({
-  fieldKind: z.literal('input'),
   label: z.string().nullish(),
 });
-export const zFieldOutputInstanceBase = zFieldInstanceBase.extend({
-  fieldKind: z.literal('output'),
-});
-export type FieldInstanceBase = z.infer<typeof zFieldInstanceBase>;
-export type FieldInputInstanceBase = z.infer<typeof zFieldInputInstanceBase>;
-export type FieldOutputInstanceBase = z.infer<typeof zFieldOutputInstanceBase>;
-
-export const zFieldTemplateBase = z.object({
+const zFieldTemplateBase = z.object({
   name: z.string().min(1),
   title: z.string().min(1),
   description: z.string().nullish(),
@@ -68,23 +43,24 @@ export const zFieldTemplateBase = z.object({
   ui_type: z.string().nullish(),
   ui_order: z.number().int().nullish(),
 });
-export const zFieldInputTemplateBase = zFieldTemplateBase.extend({
+const zFieldInputTemplateBase = zFieldTemplateBase.extend({
   fieldKind: z.literal('input'),
   input: zFieldInput,
   required: z.boolean(),
   ui_component: zFieldUIComponent.nullish(),
   ui_choice_labels: z.record(z.string()).nullish(),
 });
-export const zFieldOutputTemplateBase = zFieldTemplateBase.extend({
+const zFieldOutputTemplateBase = zFieldTemplateBase.extend({
   fieldKind: z.literal('output'),
 });
-export type FieldTemplateBase = z.infer<typeof zFieldTemplateBase>;
-export type FieldInputTemplateBase = z.infer<typeof zFieldInputTemplateBase>;
-export type FieldOutputTemplateBase = z.infer<typeof zFieldOutputTemplateBase>;
 
-export const zFieldTypeBase = z.object({
-  isCollection: z.boolean(),
-  isCollectionOrScalar: z.boolean(),
+const SINGLE = 'SINGLE' as const;
+const COLLECTION = 'COLLECTION' as const;
+const SINGLE_OR_COLLECTION = 'SINGLE_OR_COLLECTION' as const;
+const zCardinality = z.enum([SINGLE, COLLECTION, SINGLE_OR_COLLECTION]);
+
+const zFieldTypeBase = z.object({
+  cardinality: zCardinality,
 });
 
 export const zFieldIdentifier = z.object({
@@ -92,24 +68,179 @@ export const zFieldIdentifier = z.object({
   fieldName: z.string().trim().min(1),
 });
 export type FieldIdentifier = z.infer<typeof zFieldIdentifier>;
-export const isFieldIdentifier = (val: unknown): val is FieldIdentifier =>
-  zFieldIdentifier.safeParse(val).success;
+// #endregion
+
+// #region Field Types
+const zStatelessFieldType = zFieldTypeBase.extend({
+  name: z.string().min(1), // stateless --> we accept the field's name as the type
+});
+const zIntegerFieldType = zFieldTypeBase.extend({
+  name: z.literal('IntegerField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zFloatFieldType = zFieldTypeBase.extend({
+  name: z.literal('FloatField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zStringFieldType = zFieldTypeBase.extend({
+  name: z.literal('StringField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zBooleanFieldType = zFieldTypeBase.extend({
+  name: z.literal('BooleanField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zEnumFieldType = zFieldTypeBase.extend({
+  name: z.literal('EnumField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zImageFieldType = zFieldTypeBase.extend({
+  name: z.literal('ImageField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zImageCollectionFieldType = z.object({
+  name: z.literal('ImageField'),
+  cardinality: z.literal(COLLECTION),
+  originalType: zStatelessFieldType.optional(),
+});
+export const isImageCollectionFieldType = (
+  fieldType: FieldType
+): fieldType is z.infer<typeof zImageCollectionFieldType> => zImageCollectionFieldType.safeParse(fieldType).success;
+const zBoardFieldType = zFieldTypeBase.extend({
+  name: z.literal('BoardField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zColorFieldType = zFieldTypeBase.extend({
+  name: z.literal('ColorField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zMainModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('MainModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zModelIdentifierFieldType = zFieldTypeBase.extend({
+  name: z.literal('ModelIdentifierField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zSDXLMainModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('SDXLMainModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zSD3MainModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('SD3MainModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zFluxMainModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('FluxMainModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zSDXLRefinerModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('SDXLRefinerModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zVAEModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('VAEModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zLoRAModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('LoRAModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zControlNetModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('ControlNetModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zIPAdapterModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('IPAdapterModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zT2IAdapterModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('T2IAdapterModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zSpandrelImageToImageModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('SpandrelImageToImageModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zT5EncoderModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('T5EncoderModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zCLIPEmbedModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('CLIPEmbedModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zCLIPLEmbedModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('CLIPLEmbedModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zCLIPGEmbedModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('CLIPGEmbedModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zControlLoRAModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('ControlLoRAModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zFluxVAEModelFieldType = zFieldTypeBase.extend({
+  name: z.literal('FluxVAEModelField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zSchedulerFieldType = zFieldTypeBase.extend({
+  name: z.literal('SchedulerField'),
+  originalType: zStatelessFieldType.optional(),
+});
+const zStatefulFieldType = z.union([
+  zIntegerFieldType,
+  zFloatFieldType,
+  zStringFieldType,
+  zBooleanFieldType,
+  zEnumFieldType,
+  zImageFieldType,
+  zBoardFieldType,
+  zModelIdentifierFieldType,
+  zMainModelFieldType,
+  zSDXLMainModelFieldType,
+  zSD3MainModelFieldType,
+  zFluxMainModelFieldType,
+  zSDXLRefinerModelFieldType,
+  zVAEModelFieldType,
+  zLoRAModelFieldType,
+  zControlNetModelFieldType,
+  zIPAdapterModelFieldType,
+  zT2IAdapterModelFieldType,
+  zSpandrelImageToImageModelFieldType,
+  zT5EncoderModelFieldType,
+  zCLIPEmbedModelFieldType,
+  zCLIPLEmbedModelFieldType,
+  zCLIPGEmbedModelFieldType,
+  zControlLoRAModelFieldType,
+  zFluxVAEModelFieldType,
+  zColorFieldType,
+  zSchedulerFieldType,
+]);
+export type StatefulFieldType = z.infer<typeof zStatefulFieldType>;
+const statefulFieldTypeNames = zStatefulFieldType.options.map((o) => o.shape.name.value);
+export const isStatefulFieldType = (fieldType: FieldType): fieldType is StatefulFieldType =>
+  (statefulFieldTypeNames as string[]).includes(fieldType.name);
+const zFieldType = z.union([zStatefulFieldType, zStatelessFieldType]);
+export type FieldType = z.infer<typeof zFieldType>;
+
+export const isSingle = (fieldType: FieldType): boolean => fieldType.cardinality === zCardinality.enum.SINGLE;
+export const isCollection = (fieldType: FieldType): boolean => fieldType.cardinality === zCardinality.enum.COLLECTION;
+export const isSingleOrCollection = (fieldType: FieldType): boolean =>
+  fieldType.cardinality === zCardinality.enum.SINGLE_OR_COLLECTION;
 // #endregion
 
 // #region IntegerField
-export const zIntegerFieldType = zFieldTypeBase.extend({
-  name: z.literal('IntegerField'),
-});
+
 export const zIntegerFieldValue = z.number().int();
-export const zIntegerFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zIntegerFieldType,
+const zIntegerFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zIntegerFieldValue,
 });
-export const zIntegerFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zIntegerFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zIntegerFieldType,
-});
-export const zIntegerFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zIntegerFieldType,
+  originalType: zFieldType.optional(),
   default: zIntegerFieldValue,
   multipleOf: z.number().int().optional(),
   maximum: z.number().int().optional(),
@@ -117,41 +248,27 @@ export const zIntegerFieldInputTemplate = zFieldInputTemplateBase.extend({
   minimum: z.number().int().optional(),
   exclusiveMinimum: z.number().int().optional(),
 });
-export const zIntegerFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zIntegerFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zIntegerFieldType,
 });
-export type IntegerFieldType = z.infer<typeof zIntegerFieldType>;
 export type IntegerFieldValue = z.infer<typeof zIntegerFieldValue>;
-export type IntegerFieldInputInstance = z.infer<
-  typeof zIntegerFieldInputInstance
->;
-export type IntegerFieldInputTemplate = z.infer<
-  typeof zIntegerFieldInputTemplate
->;
-export const isIntegerFieldInputInstance = (
-  val: unknown
-): val is IntegerFieldInputInstance =>
+export type IntegerFieldInputInstance = z.infer<typeof zIntegerFieldInputInstance>;
+export type IntegerFieldInputTemplate = z.infer<typeof zIntegerFieldInputTemplate>;
+export const isIntegerFieldInputInstance = (val: unknown): val is IntegerFieldInputInstance =>
   zIntegerFieldInputInstance.safeParse(val).success;
-export const isIntegerFieldInputTemplate = (
-  val: unknown
-): val is IntegerFieldInputTemplate =>
+export const isIntegerFieldInputTemplate = (val: unknown): val is IntegerFieldInputTemplate =>
   zIntegerFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region FloatField
-export const zFloatFieldType = zFieldTypeBase.extend({
-  name: z.literal('FloatField'),
-});
+
 export const zFloatFieldValue = z.number();
-export const zFloatFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zFloatFieldType,
+const zFloatFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zFloatFieldValue,
 });
-export const zFloatFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zFloatFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zFloatFieldType,
-});
-export const zFloatFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zFloatFieldType,
+  originalType: zFieldType.optional(),
   default: zFloatFieldValue,
   multipleOf: z.number().optional(),
   maximum: z.number().optional(),
@@ -159,687 +276,642 @@ export const zFloatFieldInputTemplate = zFieldInputTemplateBase.extend({
   minimum: z.number().optional(),
   exclusiveMinimum: z.number().optional(),
 });
-export const zFloatFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zFloatFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zFloatFieldType,
 });
-export type FloatFieldType = z.infer<typeof zFloatFieldType>;
 export type FloatFieldValue = z.infer<typeof zFloatFieldValue>;
 export type FloatFieldInputInstance = z.infer<typeof zFloatFieldInputInstance>;
-export type FloatFieldOutputInstance = z.infer<
-  typeof zFloatFieldOutputInstance
->;
 export type FloatFieldInputTemplate = z.infer<typeof zFloatFieldInputTemplate>;
-export type FloatFieldOutputTemplate = z.infer<
-  typeof zFloatFieldOutputTemplate
->;
-export const isFloatFieldInputInstance = (
-  val: unknown
-): val is FloatFieldInputInstance =>
+export const isFloatFieldInputInstance = (val: unknown): val is FloatFieldInputInstance =>
   zFloatFieldInputInstance.safeParse(val).success;
-export const isFloatFieldInputTemplate = (
-  val: unknown
-): val is FloatFieldInputTemplate =>
+export const isFloatFieldInputTemplate = (val: unknown): val is FloatFieldInputTemplate =>
   zFloatFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region StringField
-export const zStringFieldType = zFieldTypeBase.extend({
-  name: z.literal('StringField'),
-});
+
 export const zStringFieldValue = z.string();
-export const zStringFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zStringFieldType,
+const zStringFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zStringFieldValue,
 });
-export const zStringFieldOutputInstance = zFieldOutputInstanceBase.extend({
-  type: zStringFieldType,
-});
-export const zStringFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zStringFieldType,
-  default: zStringFieldValue,
-  maxLength: z.number().int().optional(),
-  minLength: z.number().int().optional(),
-});
-export const zStringFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zStringFieldInputTemplate = zFieldInputTemplateBase
+  .extend({
+    type: zStringFieldType,
+    originalType: zFieldType.optional(),
+    default: zStringFieldValue,
+    maxLength: z.number().int().gte(0).optional(),
+    minLength: z.number().int().gte(0).optional(),
+  })
+  .refine(
+    (val) => {
+      if (val.maxLength !== undefined && val.minLength !== undefined) {
+        return val.maxLength >= val.minLength;
+      }
+      return true;
+    },
+    { message: 'maxLength must be greater than or equal to minLength' }
+  );
+const zStringFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zStringFieldType,
 });
 
-export type StringFieldType = z.infer<typeof zStringFieldType>;
 export type StringFieldValue = z.infer<typeof zStringFieldValue>;
-export type StringFieldInputInstance = z.infer<
-  typeof zStringFieldInputInstance
->;
-export type StringFieldOutputInstance = z.infer<
-  typeof zStringFieldOutputInstance
->;
-export type StringFieldInputTemplate = z.infer<
-  typeof zStringFieldInputTemplate
->;
-export type StringFieldOutputTemplate = z.infer<
-  typeof zStringFieldOutputTemplate
->;
-export const isStringFieldInputInstance = (
-  val: unknown
-): val is StringFieldInputInstance =>
+export type StringFieldInputInstance = z.infer<typeof zStringFieldInputInstance>;
+export type StringFieldInputTemplate = z.infer<typeof zStringFieldInputTemplate>;
+export const isStringFieldInputInstance = (val: unknown): val is StringFieldInputInstance =>
   zStringFieldInputInstance.safeParse(val).success;
-export const isStringFieldInputTemplate = (
-  val: unknown
-): val is StringFieldInputTemplate =>
+export const isStringFieldInputTemplate = (val: unknown): val is StringFieldInputTemplate =>
   zStringFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region BooleanField
-export const zBooleanFieldType = zFieldTypeBase.extend({
-  name: z.literal('BooleanField'),
-});
+
 export const zBooleanFieldValue = z.boolean();
-export const zBooleanFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zBooleanFieldType,
+const zBooleanFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zBooleanFieldValue,
 });
-export const zBooleanFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zBooleanFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zBooleanFieldType,
-});
-export const zBooleanFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zBooleanFieldType,
+  originalType: zFieldType.optional(),
   default: zBooleanFieldValue,
 });
-export const zBooleanFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zBooleanFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zBooleanFieldType,
 });
-export type BooleanFieldType = z.infer<typeof zBooleanFieldType>;
 export type BooleanFieldValue = z.infer<typeof zBooleanFieldValue>;
-export type BooleanFieldInputInstance = z.infer<
-  typeof zBooleanFieldInputInstance
->;
-export type BooleanFieldOutputInstance = z.infer<
-  typeof zBooleanFieldOutputInstance
->;
-export type BooleanFieldInputTemplate = z.infer<
-  typeof zBooleanFieldInputTemplate
->;
-export type BooleanFieldOutputTemplate = z.infer<
-  typeof zBooleanFieldOutputTemplate
->;
-export const isBooleanFieldInputInstance = (
-  val: unknown
-): val is BooleanFieldInputInstance =>
+export type BooleanFieldInputInstance = z.infer<typeof zBooleanFieldInputInstance>;
+export type BooleanFieldInputTemplate = z.infer<typeof zBooleanFieldInputTemplate>;
+export const isBooleanFieldInputInstance = (val: unknown): val is BooleanFieldInputInstance =>
   zBooleanFieldInputInstance.safeParse(val).success;
-export const isBooleanFieldInputTemplate = (
-  val: unknown
-): val is BooleanFieldInputTemplate =>
+export const isBooleanFieldInputTemplate = (val: unknown): val is BooleanFieldInputTemplate =>
   zBooleanFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region EnumField
-export const zEnumFieldType = zFieldTypeBase.extend({
-  name: z.literal('EnumField'),
-});
+
 export const zEnumFieldValue = z.string();
-export const zEnumFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zEnumFieldType,
+const zEnumFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zEnumFieldValue,
 });
-export const zEnumFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zEnumFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zEnumFieldType,
-});
-export const zEnumFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zEnumFieldType,
+  originalType: zFieldType.optional(),
   default: zEnumFieldValue,
   options: z.array(z.string()),
   labels: z.record(z.string()).optional(),
 });
-export const zEnumFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zEnumFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zEnumFieldType,
 });
-export type EnumFieldType = z.infer<typeof zEnumFieldType>;
 export type EnumFieldValue = z.infer<typeof zEnumFieldValue>;
 export type EnumFieldInputInstance = z.infer<typeof zEnumFieldInputInstance>;
-export type EnumFieldOutputInstance = z.infer<typeof zEnumFieldOutputInstance>;
 export type EnumFieldInputTemplate = z.infer<typeof zEnumFieldInputTemplate>;
-export type EnumFieldOutputTemplate = z.infer<typeof zEnumFieldOutputTemplate>;
-export const isEnumFieldInputInstance = (
-  val: unknown
-): val is EnumFieldInputInstance =>
+export const isEnumFieldInputInstance = (val: unknown): val is EnumFieldInputInstance =>
   zEnumFieldInputInstance.safeParse(val).success;
-export const isEnumFieldInputTemplate = (
-  val: unknown
-): val is EnumFieldInputTemplate =>
+export const isEnumFieldInputTemplate = (val: unknown): val is EnumFieldInputTemplate =>
   zEnumFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region ImageField
-export const zImageFieldType = zFieldTypeBase.extend({
-  name: z.literal('ImageField'),
-});
 export const zImageFieldValue = zImageField.optional();
-export const zImageFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zImageFieldType,
+const zImageFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zImageFieldValue,
 });
-export const zImageFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zImageFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zImageFieldType,
-});
-export const zImageFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zImageFieldType,
+  originalType: zFieldType.optional(),
   default: zImageFieldValue,
 });
-export const zImageFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zImageFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zImageFieldType,
 });
-export type ImageFieldType = z.infer<typeof zImageFieldType>;
 export type ImageFieldValue = z.infer<typeof zImageFieldValue>;
 export type ImageFieldInputInstance = z.infer<typeof zImageFieldInputInstance>;
-export type ImageFieldOutputInstance = z.infer<
-  typeof zImageFieldOutputInstance
->;
 export type ImageFieldInputTemplate = z.infer<typeof zImageFieldInputTemplate>;
-export type ImageFieldOutputTemplate = z.infer<
-  typeof zImageFieldOutputTemplate
->;
-export const isImageFieldInputInstance = (
-  val: unknown
-): val is ImageFieldInputInstance =>
+export const isImageFieldInputInstance = (val: unknown): val is ImageFieldInputInstance =>
   zImageFieldInputInstance.safeParse(val).success;
-export const isImageFieldInputTemplate = (
-  val: unknown
-): val is ImageFieldInputTemplate =>
+export const isImageFieldInputTemplate = (val: unknown): val is ImageFieldInputTemplate =>
   zImageFieldInputTemplate.safeParse(val).success;
 // #endregion
 
-// #region BoardField
-export const zBoardFieldType = zFieldTypeBase.extend({
-  name: z.literal('BoardField'),
+// #region ImageField Collection
+export const zImageFieldCollectionValue = z.array(zImageField).optional();
+const zImageFieldCollectionInputInstance = zFieldInputInstanceBase.extend({
+  value: zImageFieldCollectionValue,
 });
+const zImageFieldCollectionInputTemplate = zFieldInputTemplateBase
+  .extend({
+    type: zImageCollectionFieldType,
+    originalType: zFieldType.optional(),
+    default: zImageFieldCollectionValue,
+    maxItems: z.number().int().gte(0).optional(),
+    minItems: z.number().int().gte(0).optional(),
+  })
+  .refine(
+    (val) => {
+      if (val.maxItems !== undefined && val.minItems !== undefined) {
+        return val.maxItems >= val.minItems;
+      }
+      return true;
+    },
+    { message: 'maxLength must be greater than or equal to minLength' }
+  );
+
+const zImageFieldCollectionOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zImageCollectionFieldType,
+});
+export type ImageFieldCollectionValue = z.infer<typeof zImageFieldCollectionValue>;
+export type ImageFieldCollectionInputInstance = z.infer<typeof zImageFieldCollectionInputInstance>;
+export type ImageFieldCollectionInputTemplate = z.infer<typeof zImageFieldCollectionInputTemplate>;
+export const isImageFieldCollectionInputInstance = (val: unknown): val is ImageFieldCollectionInputInstance =>
+  zImageFieldCollectionInputInstance.safeParse(val).success;
+export const isImageFieldCollectionInputTemplate = (val: unknown): val is ImageFieldCollectionInputTemplate =>
+  zImageFieldCollectionInputTemplate.safeParse(val).success;
+// #endregion
+
+// #region BoardField
+
 export const zBoardFieldValue = zBoardField.optional();
-export const zBoardFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zBoardFieldType,
+const zBoardFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zBoardFieldValue,
 });
-export const zBoardFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zBoardFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zBoardFieldType,
-});
-export const zBoardFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zBoardFieldType,
+  originalType: zFieldType.optional(),
   default: zBoardFieldValue,
 });
-export const zBoardFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zBoardFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zBoardFieldType,
 });
-export type BoardFieldType = z.infer<typeof zBoardFieldType>;
 export type BoardFieldValue = z.infer<typeof zBoardFieldValue>;
 export type BoardFieldInputInstance = z.infer<typeof zBoardFieldInputInstance>;
-export type BoardFieldOutputInstance = z.infer<
-  typeof zBoardFieldOutputInstance
->;
 export type BoardFieldInputTemplate = z.infer<typeof zBoardFieldInputTemplate>;
-export type BoardFieldOutputTemplate = z.infer<
-  typeof zBoardFieldOutputTemplate
->;
-export const isBoardFieldInputInstance = (
-  val: unknown
-): val is BoardFieldInputInstance =>
+export const isBoardFieldInputInstance = (val: unknown): val is BoardFieldInputInstance =>
   zBoardFieldInputInstance.safeParse(val).success;
-export const isBoardFieldInputTemplate = (
-  val: unknown
-): val is BoardFieldInputTemplate =>
+export const isBoardFieldInputTemplate = (val: unknown): val is BoardFieldInputTemplate =>
   zBoardFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region ColorField
-export const zColorFieldType = zFieldTypeBase.extend({
-  name: z.literal('ColorField'),
-});
+
 export const zColorFieldValue = zColorField.optional();
-export const zColorFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zColorFieldType,
+const zColorFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zColorFieldValue,
 });
-export const zColorFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zColorFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zColorFieldType,
-});
-export const zColorFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zColorFieldType,
+  originalType: zFieldType.optional(),
   default: zColorFieldValue,
 });
-export const zColorFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zColorFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zColorFieldType,
 });
-export type ColorFieldType = z.infer<typeof zColorFieldType>;
 export type ColorFieldValue = z.infer<typeof zColorFieldValue>;
 export type ColorFieldInputInstance = z.infer<typeof zColorFieldInputInstance>;
-export type ColorFieldOutputInstance = z.infer<
-  typeof zColorFieldOutputInstance
->;
 export type ColorFieldInputTemplate = z.infer<typeof zColorFieldInputTemplate>;
-export type ColorFieldOutputTemplate = z.infer<
-  typeof zColorFieldOutputTemplate
->;
-export const isColorFieldInputInstance = (
-  val: unknown
-): val is ColorFieldInputInstance =>
+export const isColorFieldInputInstance = (val: unknown): val is ColorFieldInputInstance =>
   zColorFieldInputInstance.safeParse(val).success;
-export const isColorFieldInputTemplate = (
-  val: unknown
-): val is ColorFieldInputTemplate =>
+export const isColorFieldInputTemplate = (val: unknown): val is ColorFieldInputTemplate =>
   zColorFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region MainModelField
-export const zMainModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('MainModelField'),
-});
-export const zMainModelFieldValue = zMainOrONNXModelField.optional();
-export const zMainModelFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zMainModelFieldType,
+
+export const zMainModelFieldValue = zModelIdentifierField.optional();
+const zMainModelFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zMainModelFieldValue,
 });
-export const zMainModelFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zMainModelFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zMainModelFieldType,
-});
-export const zMainModelFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zMainModelFieldType,
+  originalType: zFieldType.optional(),
   default: zMainModelFieldValue,
 });
-export const zMainModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zMainModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zMainModelFieldType,
 });
-export type MainModelFieldType = z.infer<typeof zMainModelFieldType>;
 export type MainModelFieldValue = z.infer<typeof zMainModelFieldValue>;
-export type MainModelFieldInputInstance = z.infer<
-  typeof zMainModelFieldInputInstance
->;
-export type MainModelFieldOutputInstance = z.infer<
-  typeof zMainModelFieldOutputInstance
->;
-export type MainModelFieldInputTemplate = z.infer<
-  typeof zMainModelFieldInputTemplate
->;
-export type MainModelFieldOutputTemplate = z.infer<
-  typeof zMainModelFieldOutputTemplate
->;
-export const isMainModelFieldInputInstance = (
-  val: unknown
-): val is MainModelFieldInputInstance =>
+export type MainModelFieldInputInstance = z.infer<typeof zMainModelFieldInputInstance>;
+export type MainModelFieldInputTemplate = z.infer<typeof zMainModelFieldInputTemplate>;
+export const isMainModelFieldInputInstance = (val: unknown): val is MainModelFieldInputInstance =>
   zMainModelFieldInputInstance.safeParse(val).success;
-export const isMainModelFieldInputTemplate = (
-  val: unknown
-): val is MainModelFieldInputTemplate =>
+export const isMainModelFieldInputTemplate = (val: unknown): val is MainModelFieldInputTemplate =>
   zMainModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
-// #region SDXLMainModelField
-export const zSDXLMainModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('SDXLMainModelField'),
+// #region ModelIdentifierField
+export const zModelIdentifierFieldValue = zModelIdentifierField.optional();
+const zModelIdentifierFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zModelIdentifierFieldValue,
 });
-export const zSDXLMainModelFieldValue = zMainModelFieldValue; // TODO: Narrow to SDXL models only.
-export const zSDXLMainModelFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zSDXLMainModelFieldType,
+const zModelIdentifierFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zModelIdentifierFieldType,
+  originalType: zFieldType.optional(),
+  default: zModelIdentifierFieldValue,
+});
+const zModelIdentifierFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zModelIdentifierFieldType,
+});
+export type ModelIdentifierFieldValue = z.infer<typeof zModelIdentifierFieldValue>;
+export type ModelIdentifierFieldInputInstance = z.infer<typeof zModelIdentifierFieldInputInstance>;
+export type ModelIdentifierFieldInputTemplate = z.infer<typeof zModelIdentifierFieldInputTemplate>;
+export const isModelIdentifierFieldInputInstance = (val: unknown): val is ModelIdentifierFieldInputInstance =>
+  zModelIdentifierFieldInputInstance.safeParse(val).success;
+export const isModelIdentifierFieldInputTemplate = (val: unknown): val is ModelIdentifierFieldInputTemplate =>
+  zModelIdentifierFieldInputTemplate.safeParse(val).success;
+// #endregion
+
+// #region SDXLMainModelField
+
+const zSDXLMainModelFieldValue = zMainModelFieldValue; // TODO: Narrow to SDXL models only.
+const zSDXLMainModelFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zSDXLMainModelFieldValue,
 });
-export const zSDXLMainModelFieldOutputInstance =
-  zFieldOutputInstanceBase.extend({
-    type: zSDXLMainModelFieldType,
-  });
-export const zSDXLMainModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+const zSDXLMainModelFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zSDXLMainModelFieldType,
+  originalType: zFieldType.optional(),
   default: zSDXLMainModelFieldValue,
 });
-export const zSDXLMainModelFieldOutputTemplate =
-  zFieldOutputTemplateBase.extend({
-    type: zSDXLMainModelFieldType,
-  });
-export type SDXLMainModelFieldType = z.infer<typeof zSDXLMainModelFieldType>;
-export type SDXLMainModelFieldValue = z.infer<typeof zSDXLMainModelFieldValue>;
-export type SDXLMainModelFieldInputInstance = z.infer<
-  typeof zSDXLMainModelFieldInputInstance
->;
-export type SDXLMainModelFieldOutputInstance = z.infer<
-  typeof zSDXLMainModelFieldOutputInstance
->;
-export type SDXLMainModelFieldInputTemplate = z.infer<
-  typeof zSDXLMainModelFieldInputTemplate
->;
-export type SDXLMainModelFieldOutputTemplate = z.infer<
-  typeof zSDXLMainModelFieldOutputTemplate
->;
-export const isSDXLMainModelFieldInputInstance = (
-  val: unknown
-): val is SDXLMainModelFieldInputInstance =>
+const zSDXLMainModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zSDXLMainModelFieldType,
+});
+export type SDXLMainModelFieldInputInstance = z.infer<typeof zSDXLMainModelFieldInputInstance>;
+export type SDXLMainModelFieldInputTemplate = z.infer<typeof zSDXLMainModelFieldInputTemplate>;
+export const isSDXLMainModelFieldInputInstance = (val: unknown): val is SDXLMainModelFieldInputInstance =>
   zSDXLMainModelFieldInputInstance.safeParse(val).success;
-export const isSDXLMainModelFieldInputTemplate = (
-  val: unknown
-): val is SDXLMainModelFieldInputTemplate =>
+export const isSDXLMainModelFieldInputTemplate = (val: unknown): val is SDXLMainModelFieldInputTemplate =>
   zSDXLMainModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
-// #region SDXLRefinerModelField
-export const zSDXLRefinerModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('SDXLRefinerModelField'),
+// #region SD3MainModelField
+
+const zSD3MainModelFieldValue = zMainModelFieldValue; // TODO: Narrow to SDXL models only.
+const zSD3MainModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zSD3MainModelFieldValue,
 });
+const zSD3MainModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zSD3MainModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zSD3MainModelFieldValue,
+});
+const zSD3MainModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zSD3MainModelFieldType,
+});
+export type SD3MainModelFieldInputInstance = z.infer<typeof zSD3MainModelFieldInputInstance>;
+export type SD3MainModelFieldInputTemplate = z.infer<typeof zSD3MainModelFieldInputTemplate>;
+export const isSD3MainModelFieldInputInstance = (val: unknown): val is SD3MainModelFieldInputInstance =>
+  zSD3MainModelFieldInputInstance.safeParse(val).success;
+export const isSD3MainModelFieldInputTemplate = (val: unknown): val is SD3MainModelFieldInputTemplate =>
+  zSD3MainModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region FluxMainModelField
+
+const zFluxMainModelFieldValue = zMainModelFieldValue; // TODO: Narrow to SDXL models only.
+const zFluxMainModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zFluxMainModelFieldValue,
+});
+const zFluxMainModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zFluxMainModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zFluxMainModelFieldValue,
+});
+const zFluxMainModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zFluxMainModelFieldType,
+});
+export type FluxMainModelFieldInputInstance = z.infer<typeof zFluxMainModelFieldInputInstance>;
+export type FluxMainModelFieldInputTemplate = z.infer<typeof zFluxMainModelFieldInputTemplate>;
+export const isFluxMainModelFieldInputInstance = (val: unknown): val is FluxMainModelFieldInputInstance =>
+  zFluxMainModelFieldInputInstance.safeParse(val).success;
+export const isFluxMainModelFieldInputTemplate = (val: unknown): val is FluxMainModelFieldInputTemplate =>
+  zFluxMainModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region SDXLRefinerModelField
+
+/** @alias */ // tells knip to ignore this duplicate export
 export const zSDXLRefinerModelFieldValue = zMainModelFieldValue; // TODO: Narrow to SDXL Refiner models only.
-export const zSDXLRefinerModelFieldInputInstance =
-  zFieldInputInstanceBase.extend({
-    type: zSDXLRefinerModelFieldType,
-    value: zSDXLRefinerModelFieldValue,
-  });
-export const zSDXLRefinerModelFieldOutputInstance =
-  zFieldOutputInstanceBase.extend({
-    type: zSDXLRefinerModelFieldType,
-  });
-export const zSDXLRefinerModelFieldInputTemplate =
-  zFieldInputTemplateBase.extend({
-    type: zSDXLRefinerModelFieldType,
-    default: zSDXLRefinerModelFieldValue,
-  });
-export const zSDXLRefinerModelFieldOutputTemplate =
-  zFieldOutputTemplateBase.extend({
-    type: zSDXLRefinerModelFieldType,
-  });
-export type SDXLRefinerModelFieldType = z.infer<
-  typeof zSDXLRefinerModelFieldType
->;
-export type SDXLRefinerModelFieldValue = z.infer<
-  typeof zSDXLRefinerModelFieldValue
->;
-export type SDXLRefinerModelFieldInputInstance = z.infer<
-  typeof zSDXLRefinerModelFieldInputInstance
->;
-export type SDXLRefinerModelFieldOutputInstance = z.infer<
-  typeof zSDXLRefinerModelFieldOutputInstance
->;
-export type SDXLRefinerModelFieldInputTemplate = z.infer<
-  typeof zSDXLRefinerModelFieldInputTemplate
->;
-export type SDXLRefinerModelFieldOutputTemplate = z.infer<
-  typeof zSDXLRefinerModelFieldOutputTemplate
->;
-export const isSDXLRefinerModelFieldInputInstance = (
-  val: unknown
-): val is SDXLRefinerModelFieldInputInstance =>
+const zSDXLRefinerModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zSDXLRefinerModelFieldValue,
+});
+const zSDXLRefinerModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zSDXLRefinerModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zSDXLRefinerModelFieldValue,
+});
+const zSDXLRefinerModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zSDXLRefinerModelFieldType,
+});
+export type SDXLRefinerModelFieldValue = z.infer<typeof zSDXLRefinerModelFieldValue>;
+export type SDXLRefinerModelFieldInputInstance = z.infer<typeof zSDXLRefinerModelFieldInputInstance>;
+export type SDXLRefinerModelFieldInputTemplate = z.infer<typeof zSDXLRefinerModelFieldInputTemplate>;
+export const isSDXLRefinerModelFieldInputInstance = (val: unknown): val is SDXLRefinerModelFieldInputInstance =>
   zSDXLRefinerModelFieldInputInstance.safeParse(val).success;
-export const isSDXLRefinerModelFieldInputTemplate = (
-  val: unknown
-): val is SDXLRefinerModelFieldInputTemplate =>
+export const isSDXLRefinerModelFieldInputTemplate = (val: unknown): val is SDXLRefinerModelFieldInputTemplate =>
   zSDXLRefinerModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region VAEModelField
-export const zVAEModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('VAEModelField'),
-});
-export const zVAEModelFieldValue = zVAEModelField.optional();
-export const zVAEModelFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zVAEModelFieldType,
+
+export const zVAEModelFieldValue = zModelIdentifierField.optional();
+const zVAEModelFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zVAEModelFieldValue,
 });
-export const zVAEModelFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zVAEModelFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zVAEModelFieldType,
-});
-export const zVAEModelFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zVAEModelFieldType,
+  originalType: zFieldType.optional(),
   default: zVAEModelFieldValue,
 });
-export const zVAEModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zVAEModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zVAEModelFieldType,
 });
-export type VAEModelFieldType = z.infer<typeof zVAEModelFieldType>;
 export type VAEModelFieldValue = z.infer<typeof zVAEModelFieldValue>;
-export type VAEModelFieldInputInstance = z.infer<
-  typeof zVAEModelFieldInputInstance
->;
-export type VAEModelFieldOutputInstance = z.infer<
-  typeof zVAEModelFieldOutputInstance
->;
-export type VAEModelFieldInputTemplate = z.infer<
-  typeof zVAEModelFieldInputTemplate
->;
-export type VAEModelFieldOutputTemplate = z.infer<
-  typeof zVAEModelFieldOutputTemplate
->;
-export const isVAEModelFieldInputInstance = (
-  val: unknown
-): val is VAEModelFieldInputInstance =>
+export type VAEModelFieldInputInstance = z.infer<typeof zVAEModelFieldInputInstance>;
+export type VAEModelFieldInputTemplate = z.infer<typeof zVAEModelFieldInputTemplate>;
+export const isVAEModelFieldInputInstance = (val: unknown): val is VAEModelFieldInputInstance =>
   zVAEModelFieldInputInstance.safeParse(val).success;
-export const isVAEModelFieldInputTemplate = (
-  val: unknown
-): val is VAEModelFieldInputTemplate =>
+export const isVAEModelFieldInputTemplate = (val: unknown): val is VAEModelFieldInputTemplate =>
   zVAEModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region LoRAModelField
-export const zLoRAModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('LoRAModelField'),
-});
-export const zLoRAModelFieldValue = zLoRAModelField.optional();
-export const zLoRAModelFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zLoRAModelFieldType,
+
+export const zLoRAModelFieldValue = zModelIdentifierField.optional();
+const zLoRAModelFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zLoRAModelFieldValue,
 });
-export const zLoRAModelFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zLoRAModelFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zLoRAModelFieldType,
-});
-export const zLoRAModelFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zLoRAModelFieldType,
+  originalType: zFieldType.optional(),
   default: zLoRAModelFieldValue,
 });
-export const zLoRAModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zLoRAModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zLoRAModelFieldType,
 });
-export type LoRAModelFieldType = z.infer<typeof zLoRAModelFieldType>;
 export type LoRAModelFieldValue = z.infer<typeof zLoRAModelFieldValue>;
-export type LoRAModelFieldInputInstance = z.infer<
-  typeof zLoRAModelFieldInputInstance
->;
-export type LoRAModelFieldOutputInstance = z.infer<
-  typeof zLoRAModelFieldOutputInstance
->;
-export type LoRAModelFieldInputTemplate = z.infer<
-  typeof zLoRAModelFieldInputTemplate
->;
-export type LoRAModelFieldOutputTemplate = z.infer<
-  typeof zLoRAModelFieldOutputTemplate
->;
-export const isLoRAModelFieldInputInstance = (
-  val: unknown
-): val is LoRAModelFieldInputInstance =>
+export type LoRAModelFieldInputInstance = z.infer<typeof zLoRAModelFieldInputInstance>;
+export type LoRAModelFieldInputTemplate = z.infer<typeof zLoRAModelFieldInputTemplate>;
+export const isLoRAModelFieldInputInstance = (val: unknown): val is LoRAModelFieldInputInstance =>
   zLoRAModelFieldInputInstance.safeParse(val).success;
-export const isLoRAModelFieldInputTemplate = (
-  val: unknown
-): val is LoRAModelFieldInputTemplate =>
+export const isLoRAModelFieldInputTemplate = (val: unknown): val is LoRAModelFieldInputTemplate =>
   zLoRAModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region ControlNetModelField
-export const zControlNetModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('ControlNetModelField'),
+
+export const zControlNetModelFieldValue = zModelIdentifierField.optional();
+const zControlNetModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zControlNetModelFieldValue,
 });
-export const zControlNetModelFieldValue = zControlNetModelField.optional();
-export const zControlNetModelFieldInputInstance =
-  zFieldInputInstanceBase.extend({
-    type: zControlNetModelFieldType,
-    value: zControlNetModelFieldValue,
-  });
-export const zControlNetModelFieldOutputInstance =
-  zFieldOutputInstanceBase.extend({
-    type: zControlNetModelFieldType,
-  });
-export const zControlNetModelFieldInputTemplate =
-  zFieldInputTemplateBase.extend({
-    type: zControlNetModelFieldType,
-    default: zControlNetModelFieldValue,
-  });
-export const zControlNetModelFieldOutputTemplate =
-  zFieldOutputTemplateBase.extend({
-    type: zControlNetModelFieldType,
-  });
-export type ControlNetModelFieldType = z.infer<
-  typeof zControlNetModelFieldType
->;
-export type ControlNetModelFieldValue = z.infer<
-  typeof zControlNetModelFieldValue
->;
-export type ControlNetModelFieldInputInstance = z.infer<
-  typeof zControlNetModelFieldInputInstance
->;
-export type ControlNetModelFieldOutputInstance = z.infer<
-  typeof zControlNetModelFieldOutputInstance
->;
-export type ControlNetModelFieldInputTemplate = z.infer<
-  typeof zControlNetModelFieldInputTemplate
->;
-export type ControlNetModelFieldOutputTemplate = z.infer<
-  typeof zControlNetModelFieldOutputTemplate
->;
-export const isControlNetModelFieldInputInstance = (
-  val: unknown
-): val is ControlNetModelFieldInputInstance =>
+const zControlNetModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zControlNetModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zControlNetModelFieldValue,
+});
+const zControlNetModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zControlNetModelFieldType,
+});
+export type ControlNetModelFieldValue = z.infer<typeof zControlNetModelFieldValue>;
+export type ControlNetModelFieldInputInstance = z.infer<typeof zControlNetModelFieldInputInstance>;
+export type ControlNetModelFieldInputTemplate = z.infer<typeof zControlNetModelFieldInputTemplate>;
+export const isControlNetModelFieldInputInstance = (val: unknown): val is ControlNetModelFieldInputInstance =>
   zControlNetModelFieldInputInstance.safeParse(val).success;
-export const isControlNetModelFieldInputTemplate = (
-  val: unknown
-): val is ControlNetModelFieldInputTemplate =>
+export const isControlNetModelFieldInputTemplate = (val: unknown): val is ControlNetModelFieldInputTemplate =>
   zControlNetModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region IPAdapterModelField
-export const zIPAdapterModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('IPAdapterModelField'),
+
+export const zIPAdapterModelFieldValue = zModelIdentifierField.optional();
+const zIPAdapterModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zIPAdapterModelFieldValue,
 });
-export const zIPAdapterModelFieldValue = zIPAdapterModelField.optional();
-export const zIPAdapterModelFieldInputInstance = zFieldInputInstanceBase.extend(
-  {
-    type: zIPAdapterModelFieldType,
-    value: zIPAdapterModelFieldValue,
-  }
-);
-export const zIPAdapterModelFieldOutputInstance =
-  zFieldOutputInstanceBase.extend({
-    type: zIPAdapterModelFieldType,
-  });
-export const zIPAdapterModelFieldInputTemplate = zFieldInputTemplateBase.extend(
-  { type: zIPAdapterModelFieldType, default: zIPAdapterModelFieldValue }
-);
-export const zIPAdapterModelFieldOutputTemplate =
-  zFieldOutputTemplateBase.extend({
-    type: zIPAdapterModelFieldType,
-  });
-export type IPAdapterModelFieldType = z.infer<typeof zIPAdapterModelFieldType>;
-export type IPAdapterModelFieldValue = z.infer<
-  typeof zIPAdapterModelFieldValue
->;
-export type IPAdapterModelFieldInputInstance = z.infer<
-  typeof zIPAdapterModelFieldInputInstance
->;
-export type IPAdapterModelFieldOutputInstance = z.infer<
-  typeof zIPAdapterModelFieldOutputInstance
->;
-export type IPAdapterModelFieldInputTemplate = z.infer<
-  typeof zIPAdapterModelFieldInputTemplate
->;
-export type IPAdapterModelFieldOutputTemplate = z.infer<
-  typeof zIPAdapterModelFieldOutputTemplate
->;
-export const isIPAdapterModelFieldInputInstance = (
-  val: unknown
-): val is IPAdapterModelFieldInputInstance =>
+const zIPAdapterModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zIPAdapterModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zIPAdapterModelFieldValue,
+});
+const zIPAdapterModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zIPAdapterModelFieldType,
+});
+export type IPAdapterModelFieldValue = z.infer<typeof zIPAdapterModelFieldValue>;
+export type IPAdapterModelFieldInputInstance = z.infer<typeof zIPAdapterModelFieldInputInstance>;
+export type IPAdapterModelFieldInputTemplate = z.infer<typeof zIPAdapterModelFieldInputTemplate>;
+export const isIPAdapterModelFieldInputInstance = (val: unknown): val is IPAdapterModelFieldInputInstance =>
   zIPAdapterModelFieldInputInstance.safeParse(val).success;
-export const isIPAdapterModelFieldInputTemplate = (
-  val: unknown
-): val is IPAdapterModelFieldInputTemplate =>
+export const isIPAdapterModelFieldInputTemplate = (val: unknown): val is IPAdapterModelFieldInputTemplate =>
   zIPAdapterModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region T2IAdapterField
-export const zT2IAdapterModelFieldType = zFieldTypeBase.extend({
-  name: z.literal('T2IAdapterModelField'),
+
+export const zT2IAdapterModelFieldValue = zModelIdentifierField.optional();
+const zT2IAdapterModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zT2IAdapterModelFieldValue,
 });
-export const zT2IAdapterModelFieldValue = zT2IAdapterModelField.optional();
-export const zT2IAdapterModelFieldInputInstance =
-  zFieldInputInstanceBase.extend({
-    type: zT2IAdapterModelFieldType,
-    value: zT2IAdapterModelFieldValue,
-  });
-export const zT2IAdapterModelFieldOutputInstance =
-  zFieldOutputInstanceBase.extend({
-    type: zT2IAdapterModelFieldType,
-  });
-export const zT2IAdapterModelFieldInputTemplate =
-  zFieldInputTemplateBase.extend({
-    type: zT2IAdapterModelFieldType,
-    default: zT2IAdapterModelFieldValue,
-  });
-export const zT2IAdapterModelFieldOutputTemplate =
-  zFieldOutputTemplateBase.extend({
-    type: zT2IAdapterModelFieldType,
-  });
-export type T2IAdapterModelFieldType = z.infer<
-  typeof zT2IAdapterModelFieldType
->;
-export type T2IAdapterModelFieldValue = z.infer<
-  typeof zT2IAdapterModelFieldValue
->;
-export type T2IAdapterModelFieldInputInstance = z.infer<
-  typeof zT2IAdapterModelFieldInputInstance
->;
-export type T2IAdapterModelFieldOutputInstance = z.infer<
-  typeof zT2IAdapterModelFieldOutputInstance
->;
-export type T2IAdapterModelFieldInputTemplate = z.infer<
-  typeof zT2IAdapterModelFieldInputTemplate
->;
-export type T2IAdapterModelFieldOutputTemplate = z.infer<
-  typeof zT2IAdapterModelFieldOutputTemplate
->;
-export const isT2IAdapterModelFieldInputInstance = (
-  val: unknown
-): val is T2IAdapterModelFieldInputInstance =>
+const zT2IAdapterModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zT2IAdapterModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zT2IAdapterModelFieldValue,
+});
+const zT2IAdapterModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zT2IAdapterModelFieldType,
+});
+export type T2IAdapterModelFieldValue = z.infer<typeof zT2IAdapterModelFieldValue>;
+export type T2IAdapterModelFieldInputInstance = z.infer<typeof zT2IAdapterModelFieldInputInstance>;
+export type T2IAdapterModelFieldInputTemplate = z.infer<typeof zT2IAdapterModelFieldInputTemplate>;
+export const isT2IAdapterModelFieldInputInstance = (val: unknown): val is T2IAdapterModelFieldInputInstance =>
   zT2IAdapterModelFieldInputInstance.safeParse(val).success;
-export const isT2IAdapterModelFieldInputTemplate = (
-  val: unknown
-): val is T2IAdapterModelFieldInputTemplate =>
+export const isT2IAdapterModelFieldInputTemplate = (val: unknown): val is T2IAdapterModelFieldInputTemplate =>
   zT2IAdapterModelFieldInputTemplate.safeParse(val).success;
 // #endregion
 
-// #region SchedulerField
-export const zSchedulerFieldType = zFieldTypeBase.extend({
-  name: z.literal('SchedulerField'),
+// #region SpandrelModelToModelField
+
+export const zSpandrelImageToImageModelFieldValue = zModelIdentifierField.optional();
+const zSpandrelImageToImageModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zSpandrelImageToImageModelFieldValue,
 });
+const zSpandrelImageToImageModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zSpandrelImageToImageModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zSpandrelImageToImageModelFieldValue,
+});
+const zSpandrelImageToImageModelFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+  type: zSpandrelImageToImageModelFieldType,
+});
+export type SpandrelImageToImageModelFieldValue = z.infer<typeof zSpandrelImageToImageModelFieldValue>;
+export type SpandrelImageToImageModelFieldInputInstance = z.infer<typeof zSpandrelImageToImageModelFieldInputInstance>;
+export type SpandrelImageToImageModelFieldInputTemplate = z.infer<typeof zSpandrelImageToImageModelFieldInputTemplate>;
+export const isSpandrelImageToImageModelFieldInputInstance = (
+  val: unknown
+): val is SpandrelImageToImageModelFieldInputInstance =>
+  zSpandrelImageToImageModelFieldInputInstance.safeParse(val).success;
+export const isSpandrelImageToImageModelFieldInputTemplate = (
+  val: unknown
+): val is SpandrelImageToImageModelFieldInputTemplate =>
+  zSpandrelImageToImageModelFieldInputTemplate.safeParse(val).success;
+// #endregion
+
+// #region T5EncoderModelField
+
+export const zT5EncoderModelFieldValue = zModelIdentifierField.optional();
+const zT5EncoderModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zT5EncoderModelFieldValue,
+});
+const zT5EncoderModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zT5EncoderModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zT5EncoderModelFieldValue,
+});
+
+export type T5EncoderModelFieldValue = z.infer<typeof zT5EncoderModelFieldValue>;
+
+export type T5EncoderModelFieldInputInstance = z.infer<typeof zT5EncoderModelFieldInputInstance>;
+export type T5EncoderModelFieldInputTemplate = z.infer<typeof zT5EncoderModelFieldInputTemplate>;
+export const isT5EncoderModelFieldInputInstance = (val: unknown): val is T5EncoderModelFieldInputInstance =>
+  zT5EncoderModelFieldInputInstance.safeParse(val).success;
+export const isT5EncoderModelFieldInputTemplate = (val: unknown): val is T5EncoderModelFieldInputTemplate =>
+  zT5EncoderModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region FluxVAEModelField
+
+export const zFluxVAEModelFieldValue = zModelIdentifierField.optional();
+const zFluxVAEModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zFluxVAEModelFieldValue,
+});
+const zFluxVAEModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zFluxVAEModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zFluxVAEModelFieldValue,
+});
+
+export type FluxVAEModelFieldValue = z.infer<typeof zFluxVAEModelFieldValue>;
+
+export type FluxVAEModelFieldInputInstance = z.infer<typeof zFluxVAEModelFieldInputInstance>;
+export type FluxVAEModelFieldInputTemplate = z.infer<typeof zFluxVAEModelFieldInputTemplate>;
+export const isFluxVAEModelFieldInputInstance = (val: unknown): val is FluxVAEModelFieldInputInstance =>
+  zFluxVAEModelFieldInputInstance.safeParse(val).success;
+export const isFluxVAEModelFieldInputTemplate = (val: unknown): val is FluxVAEModelFieldInputTemplate =>
+  zFluxVAEModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region CLIPEmbedModelField
+
+export const zCLIPEmbedModelFieldValue = zModelIdentifierField.optional();
+const zCLIPEmbedModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zCLIPEmbedModelFieldValue,
+});
+const zCLIPEmbedModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zCLIPEmbedModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zCLIPEmbedModelFieldValue,
+});
+
+export type CLIPEmbedModelFieldValue = z.infer<typeof zCLIPEmbedModelFieldValue>;
+
+export type CLIPEmbedModelFieldInputInstance = z.infer<typeof zCLIPEmbedModelFieldInputInstance>;
+export type CLIPEmbedModelFieldInputTemplate = z.infer<typeof zCLIPEmbedModelFieldInputTemplate>;
+export const isCLIPEmbedModelFieldInputInstance = (val: unknown): val is CLIPEmbedModelFieldInputInstance =>
+  zCLIPEmbedModelFieldInputInstance.safeParse(val).success;
+export const isCLIPEmbedModelFieldInputTemplate = (val: unknown): val is CLIPEmbedModelFieldInputTemplate =>
+  zCLIPEmbedModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region CLIPLEmbedModelField
+
+export const zCLIPLEmbedModelFieldValue = zModelIdentifierField.optional();
+const zCLIPLEmbedModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zCLIPLEmbedModelFieldValue,
+});
+const zCLIPLEmbedModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zCLIPLEmbedModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zCLIPLEmbedModelFieldValue,
+});
+
+export type CLIPLEmbedModelFieldValue = z.infer<typeof zCLIPLEmbedModelFieldValue>;
+
+export type CLIPLEmbedModelFieldInputInstance = z.infer<typeof zCLIPLEmbedModelFieldInputInstance>;
+export type CLIPLEmbedModelFieldInputTemplate = z.infer<typeof zCLIPLEmbedModelFieldInputTemplate>;
+export const isCLIPLEmbedModelFieldInputInstance = (val: unknown): val is CLIPLEmbedModelFieldInputInstance =>
+  zCLIPLEmbedModelFieldInputInstance.safeParse(val).success;
+export const isCLIPLEmbedModelFieldInputTemplate = (val: unknown): val is CLIPLEmbedModelFieldInputTemplate =>
+  zCLIPLEmbedModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region CLIPGEmbedModelField
+
+export const zCLIPGEmbedModelFieldValue = zModelIdentifierField.optional();
+const zCLIPGEmbedModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zCLIPGEmbedModelFieldValue,
+});
+const zCLIPGEmbedModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zCLIPGEmbedModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zCLIPGEmbedModelFieldValue,
+});
+
+export type CLIPGEmbedModelFieldValue = z.infer<typeof zCLIPLEmbedModelFieldValue>;
+
+export type CLIPGEmbedModelFieldInputInstance = z.infer<typeof zCLIPGEmbedModelFieldInputInstance>;
+export type CLIPGEmbedModelFieldInputTemplate = z.infer<typeof zCLIPGEmbedModelFieldInputTemplate>;
+export const isCLIPGEmbedModelFieldInputInstance = (val: unknown): val is CLIPGEmbedModelFieldInputInstance =>
+  zCLIPGEmbedModelFieldInputInstance.safeParse(val).success;
+export const isCLIPGEmbedModelFieldInputTemplate = (val: unknown): val is CLIPGEmbedModelFieldInputTemplate =>
+  zCLIPGEmbedModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region ControlLoRAModelField
+
+export const zControlLoRAModelFieldValue = zModelIdentifierField.optional();
+const zControlLoRAModelFieldInputInstance = zFieldInputInstanceBase.extend({
+  value: zControlLoRAModelFieldValue,
+});
+const zControlLoRAModelFieldInputTemplate = zFieldInputTemplateBase.extend({
+  type: zControlLoRAModelFieldType,
+  originalType: zFieldType.optional(),
+  default: zControlLoRAModelFieldValue,
+});
+
+export type ControlLoRAModelFieldValue = z.infer<typeof zCLIPLEmbedModelFieldValue>;
+
+export type ControlLoRAModelFieldInputInstance = z.infer<typeof zControlLoRAModelFieldInputInstance>;
+export type ControlLoRAModelFieldInputTemplate = z.infer<typeof zControlLoRAModelFieldInputTemplate>;
+export const isControlLoRAModelFieldInputInstance = (val: unknown): val is ControlLoRAModelFieldInputInstance =>
+  zControlLoRAModelFieldInputInstance.safeParse(val).success;
+export const isControlLoRAModelFieldInputTemplate = (val: unknown): val is ControlLoRAModelFieldInputTemplate =>
+  zControlLoRAModelFieldInputTemplate.safeParse(val).success;
+
+// #endregion
+
+// #region SchedulerField
+
 export const zSchedulerFieldValue = zSchedulerField.optional();
-export const zSchedulerFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zSchedulerFieldType,
+const zSchedulerFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zSchedulerFieldValue,
 });
-export const zSchedulerFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zSchedulerFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zSchedulerFieldType,
-});
-export const zSchedulerFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zSchedulerFieldType,
+  originalType: zFieldType.optional(),
   default: zSchedulerFieldValue,
 });
-export const zSchedulerFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zSchedulerFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zSchedulerFieldType,
 });
-export type SchedulerFieldType = z.infer<typeof zSchedulerFieldType>;
 export type SchedulerFieldValue = z.infer<typeof zSchedulerFieldValue>;
-export type SchedulerFieldInputInstance = z.infer<
-  typeof zSchedulerFieldInputInstance
->;
-export type SchedulerFieldOutputInstance = z.infer<
-  typeof zSchedulerFieldOutputInstance
->;
-export type SchedulerFieldInputTemplate = z.infer<
-  typeof zSchedulerFieldInputTemplate
->;
-export type SchedulerFieldOutputTemplate = z.infer<
-  typeof zSchedulerFieldOutputTemplate
->;
-export const isSchedulerFieldInputInstance = (
-  val: unknown
-): val is SchedulerFieldInputInstance =>
+export type SchedulerFieldInputInstance = z.infer<typeof zSchedulerFieldInputInstance>;
+export type SchedulerFieldInputTemplate = z.infer<typeof zSchedulerFieldInputTemplate>;
+export const isSchedulerFieldInputInstance = (val: unknown): val is SchedulerFieldInputInstance =>
   zSchedulerFieldInputInstance.safeParse(val).success;
-export const isSchedulerFieldInputTemplate = (
-  val: unknown
-): val is SchedulerFieldInputTemplate =>
+export const isSchedulerFieldInputTemplate = (val: unknown): val is SchedulerFieldInputTemplate =>
   zSchedulerFieldInputTemplate.safeParse(val).success;
 // #endregion
 
@@ -855,40 +927,22 @@ export const isSchedulerFieldInputTemplate = (
  * - Reserved fields like IsIntermediate
  * - Any other field we don't have full-on schemas for
  */
-export const zStatelessFieldType = zFieldTypeBase.extend({
-  name: z.string().min(1), // stateless --> we accept the field's name as the type
-});
-export const zStatelessFieldValue = z.undefined().catch(undefined); // stateless --> no value, but making this z.never() introduces a lot of extra TS fanagling
-export const zStatelessFieldInputInstance = zFieldInputInstanceBase.extend({
-  type: zStatelessFieldType,
+
+const zStatelessFieldValue = z.undefined().catch(undefined); // stateless --> no value, but making this z.never() introduces a lot of extra TS fanagling
+const zStatelessFieldInputInstance = zFieldInputInstanceBase.extend({
   value: zStatelessFieldValue,
 });
-export const zStatelessFieldOutputInstance = zFieldOutputInstanceBase.extend({
+const zStatelessFieldInputTemplate = zFieldInputTemplateBase.extend({
   type: zStatelessFieldType,
-});
-export const zStatelessFieldInputTemplate = zFieldInputTemplateBase.extend({
-  type: zStatelessFieldType,
+  originalType: zFieldType.optional(),
   default: zStatelessFieldValue,
   input: z.literal('connection'), // stateless --> only accepts connection inputs
 });
-export const zStatelessFieldOutputTemplate = zFieldOutputTemplateBase.extend({
+const zStatelessFieldOutputTemplate = zFieldOutputTemplateBase.extend({
   type: zStatelessFieldType,
 });
 
-export type StatelessFieldType = z.infer<typeof zStatelessFieldType>;
-export type StatelessFieldValue = z.infer<typeof zStatelessFieldValue>;
-export type StatelessFieldInputInstance = z.infer<
-  typeof zStatelessFieldInputInstance
->;
-export type StatelessFieldOutputInstance = z.infer<
-  typeof zStatelessFieldOutputInstance
->;
-export type StatelessFieldInputTemplate = z.infer<
-  typeof zStatelessFieldInputTemplate
->;
-export type StatelessFieldOutputTemplate = z.infer<
-  typeof zStatelessFieldOutputTemplate
->;
+export type StatelessFieldInputTemplate = z.infer<typeof zStatelessFieldInputTemplate>;
 // #endregion
 
 /**
@@ -906,36 +960,6 @@ export type StatelessFieldOutputTemplate = z.infer<
  * for all other StatelessFields.
  */
 
-// #region StatefulFieldType & FieldType
-export const zStatefulFieldType = z.union([
-  zIntegerFieldType,
-  zFloatFieldType,
-  zStringFieldType,
-  zBooleanFieldType,
-  zEnumFieldType,
-  zImageFieldType,
-  zBoardFieldType,
-  zMainModelFieldType,
-  zSDXLMainModelFieldType,
-  zSDXLRefinerModelFieldType,
-  zVAEModelFieldType,
-  zLoRAModelFieldType,
-  zControlNetModelFieldType,
-  zIPAdapterModelFieldType,
-  zT2IAdapterModelFieldType,
-  zColorFieldType,
-  zSchedulerFieldType,
-]);
-export type StatefulFieldType = z.infer<typeof zStatefulFieldType>;
-export const isStatefulFieldType = (val: unknown): val is StatefulFieldType =>
-  zStatefulFieldType.safeParse(val).success;
-
-export const zFieldType = z.union([zStatefulFieldType, zStatelessFieldType]);
-export type FieldType = z.infer<typeof zFieldType>;
-export const isFieldType = (val: unknown): val is FieldType =>
-  zFieldType.safeParse(val).success;
-// #endregion
-
 // #region StatefulFieldValue & FieldValue
 export const zStatefulFieldValue = z.union([
   zIntegerFieldValue,
@@ -944,38 +968,49 @@ export const zStatefulFieldValue = z.union([
   zBooleanFieldValue,
   zEnumFieldValue,
   zImageFieldValue,
+  zImageFieldCollectionValue,
   zBoardFieldValue,
+  zModelIdentifierFieldValue,
   zMainModelFieldValue,
   zSDXLMainModelFieldValue,
+  zFluxMainModelFieldValue,
+  zSD3MainModelFieldValue,
   zSDXLRefinerModelFieldValue,
   zVAEModelFieldValue,
   zLoRAModelFieldValue,
   zControlNetModelFieldValue,
   zIPAdapterModelFieldValue,
   zT2IAdapterModelFieldValue,
+  zSpandrelImageToImageModelFieldValue,
+  zT5EncoderModelFieldValue,
+  zFluxVAEModelFieldValue,
+  zCLIPEmbedModelFieldValue,
+  zCLIPLEmbedModelFieldValue,
+  zCLIPGEmbedModelFieldValue,
+  zControlLoRAModelFieldValue,
   zColorFieldValue,
   zSchedulerFieldValue,
 ]);
 export type StatefulFieldValue = z.infer<typeof zStatefulFieldValue>;
-export const isStatefulFieldValue = (val: unknown): val is StatefulFieldValue =>
-  zStatefulFieldValue.safeParse(val).success;
 
-export const zFieldValue = z.union([zStatefulFieldValue, zStatelessFieldValue]);
+const zFieldValue = z.union([zStatefulFieldValue, zStatelessFieldValue]);
 export type FieldValue = z.infer<typeof zFieldValue>;
-export const isFieldValue = (val: unknown): val is FieldValue =>
-  zFieldValue.safeParse(val).success;
 // #endregion
 
 // #region StatefulFieldInputInstance & FieldInputInstance
-export const zStatefulFieldInputInstance = z.union([
+const zStatefulFieldInputInstance = z.union([
   zIntegerFieldInputInstance,
   zFloatFieldInputInstance,
   zStringFieldInputInstance,
   zBooleanFieldInputInstance,
   zEnumFieldInputInstance,
   zImageFieldInputInstance,
+  zImageFieldCollectionInputInstance,
   zBoardFieldInputInstance,
+  zModelIdentifierFieldInputInstance,
   zMainModelFieldInputInstance,
+  zFluxMainModelFieldInputInstance,
+  zSD3MainModelFieldInputInstance,
   zSDXLMainModelFieldInputInstance,
   zSDXLRefinerModelFieldInputInstance,
   zVAEModelFieldInputInstance,
@@ -983,74 +1018,34 @@ export const zStatefulFieldInputInstance = z.union([
   zControlNetModelFieldInputInstance,
   zIPAdapterModelFieldInputInstance,
   zT2IAdapterModelFieldInputInstance,
+  zSpandrelImageToImageModelFieldInputInstance,
+  zT5EncoderModelFieldInputInstance,
+  zFluxVAEModelFieldInputInstance,
+  zCLIPEmbedModelFieldInputInstance,
   zColorFieldInputInstance,
   zSchedulerFieldInputInstance,
 ]);
-export type StatefulFieldInputInstance = z.infer<
-  typeof zStatefulFieldInputInstance
->;
-export const isStatefulFieldInputInstance = (
-  val: unknown
-): val is StatefulFieldInputInstance =>
-  zStatefulFieldInputInstance.safeParse(val).success;
 
-export const zFieldInputInstance = z.union([
-  zStatefulFieldInputInstance,
-  zStatelessFieldInputInstance,
-]);
+export const zFieldInputInstance = z.union([zStatefulFieldInputInstance, zStatelessFieldInputInstance]);
 export type FieldInputInstance = z.infer<typeof zFieldInputInstance>;
 export const isFieldInputInstance = (val: unknown): val is FieldInputInstance =>
   zFieldInputInstance.safeParse(val).success;
 // #endregion
 
-// #region StatefulFieldOutputInstance & FieldOutputInstance
-export const zStatefulFieldOutputInstance = z.union([
-  zIntegerFieldOutputInstance,
-  zFloatFieldOutputInstance,
-  zStringFieldOutputInstance,
-  zBooleanFieldOutputInstance,
-  zEnumFieldOutputInstance,
-  zImageFieldOutputInstance,
-  zBoardFieldOutputInstance,
-  zMainModelFieldOutputInstance,
-  zSDXLMainModelFieldOutputInstance,
-  zSDXLRefinerModelFieldOutputInstance,
-  zVAEModelFieldOutputInstance,
-  zLoRAModelFieldOutputInstance,
-  zControlNetModelFieldOutputInstance,
-  zIPAdapterModelFieldOutputInstance,
-  zT2IAdapterModelFieldOutputInstance,
-  zColorFieldOutputInstance,
-  zSchedulerFieldOutputInstance,
-]);
-export type StatefulFieldOutputInstance = z.infer<
-  typeof zStatefulFieldOutputInstance
->;
-export const isStatefulFieldOutputInstance = (
-  val: unknown
-): val is StatefulFieldOutputInstance =>
-  zStatefulFieldOutputInstance.safeParse(val).success;
-
-export const zFieldOutputInstance = z.union([
-  zStatefulFieldOutputInstance,
-  zStatelessFieldOutputInstance,
-]);
-export type FieldOutputInstance = z.infer<typeof zFieldOutputInstance>;
-export const isFieldOutputInstance = (
-  val: unknown
-): val is FieldOutputInstance => zFieldOutputInstance.safeParse(val).success;
-// #endregion
-
 // #region StatefulFieldInputTemplate & FieldInputTemplate
-export const zStatefulFieldInputTemplate = z.union([
+const zStatefulFieldInputTemplate = z.union([
   zIntegerFieldInputTemplate,
   zFloatFieldInputTemplate,
   zStringFieldInputTemplate,
   zBooleanFieldInputTemplate,
   zEnumFieldInputTemplate,
   zImageFieldInputTemplate,
+  zImageFieldCollectionInputTemplate,
   zBoardFieldInputTemplate,
+  zModelIdentifierFieldInputTemplate,
   zMainModelFieldInputTemplate,
+  zFluxMainModelFieldInputTemplate,
+  zSD3MainModelFieldInputTemplate,
   zSDXLMainModelFieldInputTemplate,
   zSDXLRefinerModelFieldInputTemplate,
   zVAEModelFieldInputTemplate,
@@ -1058,35 +1053,38 @@ export const zStatefulFieldInputTemplate = z.union([
   zControlNetModelFieldInputTemplate,
   zIPAdapterModelFieldInputTemplate,
   zT2IAdapterModelFieldInputTemplate,
+  zSpandrelImageToImageModelFieldInputTemplate,
+  zT5EncoderModelFieldInputTemplate,
+  zFluxVAEModelFieldInputTemplate,
+  zCLIPEmbedModelFieldInputTemplate,
+  zCLIPLEmbedModelFieldInputTemplate,
+  zCLIPGEmbedModelFieldInputTemplate,
+  zControlLoRAModelFieldInputTemplate,
   zColorFieldInputTemplate,
   zSchedulerFieldInputTemplate,
   zStatelessFieldInputTemplate,
 ]);
-export type StatefulFieldInputTemplate = z.infer<typeof zFieldInputTemplate>;
-export const isStatefulFieldInputTemplate = (
-  val: unknown
-): val is StatefulFieldInputTemplate =>
-  zStatefulFieldInputTemplate.safeParse(val).success;
 
-export const zFieldInputTemplate = z.union([
-  zStatefulFieldInputTemplate,
-  zStatelessFieldInputTemplate,
-]);
+export const zFieldInputTemplate = z.union([zStatefulFieldInputTemplate, zStatelessFieldInputTemplate]);
 export type FieldInputTemplate = z.infer<typeof zFieldInputTemplate>;
 export const isFieldInputTemplate = (val: unknown): val is FieldInputTemplate =>
   zFieldInputTemplate.safeParse(val).success;
 // #endregion
 
 // #region StatefulFieldOutputTemplate & FieldOutputTemplate
-export const zStatefulFieldOutputTemplate = z.union([
+const zStatefulFieldOutputTemplate = z.union([
   zIntegerFieldOutputTemplate,
   zFloatFieldOutputTemplate,
   zStringFieldOutputTemplate,
   zBooleanFieldOutputTemplate,
   zEnumFieldOutputTemplate,
   zImageFieldOutputTemplate,
+  zImageFieldCollectionOutputTemplate,
   zBoardFieldOutputTemplate,
+  zModelIdentifierFieldOutputTemplate,
   zMainModelFieldOutputTemplate,
+  zFluxMainModelFieldOutputTemplate,
+  zSD3MainModelFieldOutputTemplate,
   zSDXLMainModelFieldOutputTemplate,
   zSDXLRefinerModelFieldOutputTemplate,
   zVAEModelFieldOutputTemplate,
@@ -1094,23 +1092,11 @@ export const zStatefulFieldOutputTemplate = z.union([
   zControlNetModelFieldOutputTemplate,
   zIPAdapterModelFieldOutputTemplate,
   zT2IAdapterModelFieldOutputTemplate,
+  zSpandrelImageToImageModelFieldOutputTemplate,
   zColorFieldOutputTemplate,
   zSchedulerFieldOutputTemplate,
 ]);
-export type StatefulFieldOutputTemplate = z.infer<
-  typeof zStatefulFieldOutputTemplate
->;
-export const isStatefulFieldOutputTemplate = (
-  val: unknown
-): val is StatefulFieldOutputTemplate =>
-  zStatefulFieldOutputTemplate.safeParse(val).success;
 
-export const zFieldOutputTemplate = z.union([
-  zStatefulFieldOutputTemplate,
-  zStatelessFieldOutputTemplate,
-]);
+export const zFieldOutputTemplate = z.union([zStatefulFieldOutputTemplate, zStatelessFieldOutputTemplate]);
 export type FieldOutputTemplate = z.infer<typeof zFieldOutputTemplate>;
-export const isFieldOutputTemplate = (
-  val: unknown
-): val is FieldOutputTemplate => zFieldOutputTemplate.safeParse(val).success;
 // #endregion

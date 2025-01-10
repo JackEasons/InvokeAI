@@ -1,29 +1,14 @@
-import { createSelector } from '@reduxjs/toolkit';
-import { stateSelector } from 'app/store/store';
-import { useAppSelector } from 'app/store/storeHooks';
-import { defaultSelectorOptions } from 'app/store/util/defaultMemoizeOptions';
+import { useNodeTemplate } from 'features/nodes/hooks/useNodeTemplate';
+import type { FieldInputTemplate } from 'features/nodes/types/field';
 import { useMemo } from 'react';
-import { isInvocationNode } from 'features/nodes/types/invocation';
+import { assert } from 'tsafe';
 
-export const useFieldInputTemplate = (nodeId: string, fieldName: string) => {
-  const selector = useMemo(
-    () =>
-      createSelector(
-        stateSelector,
-        ({ nodes }) => {
-          const node = nodes.nodes.find((node) => node.id === nodeId);
-          if (!isInvocationNode(node)) {
-            return;
-          }
-          const nodeTemplate = nodes.nodeTemplates[node?.data.type ?? ''];
-          return nodeTemplate?.inputs[fieldName];
-        },
-        defaultSelectorOptions
-      ),
-    [fieldName, nodeId]
-  );
-
-  const fieldTemplate = useAppSelector(selector);
-
+export const useFieldInputTemplate = (nodeId: string, fieldName: string): FieldInputTemplate => {
+  const template = useNodeTemplate(nodeId);
+  const fieldTemplate = useMemo(() => {
+    const _fieldTemplate = template.inputs[fieldName];
+    assert(_fieldTemplate, `Field template for field ${fieldName} not found`);
+    return _fieldTemplate;
+  }, [fieldName, template.inputs]);
   return fieldTemplate;
 };

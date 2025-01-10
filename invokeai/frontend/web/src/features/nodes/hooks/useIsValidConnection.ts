@@ -1,10 +1,12 @@
 // TODO: enable this at some point
-import { useAppSelector } from 'app/store/storeHooks';
+import { useStore } from '@nanostores/react';
+import { useAppSelector, useAppStore } from 'app/store/storeHooks';
+import { $edgePendingUpdate, $templates } from 'features/nodes/store/nodesSlice';
+import { selectNodesSlice } from 'features/nodes/store/selectors';
+import { validateConnection } from 'features/nodes/store/util/validateConnection';
+import { selectShouldShouldValidateGraph } from 'features/nodes/store/workflowSettingsSlice';
 import { useCallback } from 'react';
-import { Connection, Node, useReactFlow } from 'reactflow';
-import { validateSourceAndTargetTypes } from 'features/nodes/store/util/validateSourceAndTargetTypes';
-import { getIsGraphAcyclic } from 'features/nodes/store/util/getIsGraphAcyclic';
-import { InvocationNodeData } from 'features/nodes/types/invocation';
+import type { Connection } from 'reactflow';
 
 /**
  * NOTE: The logic here must be duplicated in `invokeai/frontend/web/src/features/nodes/store/util/makeIsConnectionValidSelector.ts`
@@ -12,78 +14,30 @@ import { InvocationNodeData } from 'features/nodes/types/invocation';
  */
 
 export const useIsValidConnection = () => {
-  const flow = useReactFlow();
-  const shouldValidateGraph = useAppSelector(
-    (state) => state.nodes.shouldValidateGraph
-  );
+  const store = useAppStore();
+  const templates = useStore($templates);
+  const shouldValidateGraph = useAppSelector(selectShouldShouldValidateGraph);
   const isValidConnection = useCallback(
     ({ source, sourceHandle, target, targetHandle }: Connection): boolean => {
-      const edges = flow.getEdges();
-      const nodes = flow.getNodes();
       // Connection must have valid targets
       if (!(source && sourceHandle && target && targetHandle)) {
         return false;
       }
+      const edgePendingUpdate = $edgePendingUpdate.get();
+      const { nodes, edges } = selectNodesSlice(store.getState());
 
-      // Find the source and target nodes
-      const sourceNode = flow.getNode(source) as Node<InvocationNodeData>;
-      const targetNode = flow.getNode(target) as Node<InvocationNodeData>;
+      const validationResult = validateConnection(
+        { source, sourceHandle, target, targetHandle },
+        nodes,
+        edges,
+        templates,
+        edgePendingUpdate,
+        shouldValidateGraph
+      );
 
-      // Conditional guards against undefined nodes/handles
-      if (!(sourceNode && targetNode && sourceNode.data && targetNode.data)) {
-        return false;
-      }
-
-      const sourceField = sourceNode.data.outputs[sourceHandle];
-      const targetField = targetNode.data.inputs[targetHandle];
-
-      if (!sourceField || !targetField) {
-        // something has gone terribly awry
-        return false;
-      }
-
-      if (source === target) {
-        // Don't allow nodes to connect to themselves, even if validation is disabled
-        return false;
-      }
-
-      if (!shouldValidateGraph) {
-        // manual override!
-        return true;
-      }
-
-      if (
-        edges.find((edge) => {
-          edge.target === target &&
-            edge.targetHandle === targetHandle &&
-            edge.source === source &&
-            edge.sourceHandle === sourceHandle;
-        })
-      ) {
-        // We already have a connection from this source to this target
-        return false;
-      }
-
-      // Connection is invalid if target already has a connection
-      if (
-        edges.find((edge) => {
-          return edge.target === target && edge.targetHandle === targetHandle;
-        }) &&
-        // except CollectionItem inputs can have multiples
-        targetField.type.name !== 'CollectionItemField'
-      ) {
-        return false;
-      }
-
-      // Must use the originalType here if it exists
-      if (!validateSourceAndTargetTypes(sourceField.type, targetField.type)) {
-        return false;
-      }
-
-      // Graphs much be acyclic (no loops!)
-      return getIsGraphAcyclic(source, target, nodes, edges);
+      return validationResult.isValid;
     },
-    [flow, shouldValidateGraph]
+    [templates, shouldValidateGraph, store]
   );
 
   return isValidConnection;
