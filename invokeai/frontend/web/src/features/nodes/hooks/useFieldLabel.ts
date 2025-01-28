@@ -1,24 +1,14 @@
 import { createSelector } from '@reduxjs/toolkit';
-import { stateSelector } from 'app/store/store';
 import { useAppSelector } from 'app/store/storeHooks';
-import { defaultSelectorOptions } from 'app/store/util/defaultMemoizeOptions';
+import { selectFieldInputInstance, selectNodesSlice } from 'features/nodes/store/selectors';
 import { useMemo } from 'react';
-import { isInvocationNode } from 'features/nodes/types/invocation';
 
-export const useFieldLabel = (nodeId: string, fieldName: string) => {
+export const useFieldLabel = (nodeId: string, fieldName: string): string | null => {
   const selector = useMemo(
     () =>
-      createSelector(
-        stateSelector,
-        ({ nodes }) => {
-          const node = nodes.nodes.find((node) => node.id === nodeId);
-          if (!isInvocationNode(node)) {
-            return;
-          }
-          return node?.data.inputs[fieldName]?.label;
-        },
-        defaultSelectorOptions
-      ),
+      createSelector(selectNodesSlice, (nodes) => {
+        return selectFieldInputInstance(nodes, nodeId, fieldName)?.label ?? null;
+      }),
     [fieldName, nodeId]
   );
 

@@ -1,55 +1,50 @@
+import type { SystemStyleObject } from '@invoke-ai/ui-library';
 import {
   Editable,
   EditableInput,
   EditablePreview,
   Flex,
-  Tooltip,
   forwardRef,
+  Tooltip,
   useEditableControls,
-} from '@chakra-ui/react';
+} from '@invoke-ai/ui-library';
 import { useAppDispatch } from 'app/store/storeHooks';
 import { useFieldLabel } from 'features/nodes/hooks/useFieldLabel';
 import { useFieldTemplateTitle } from 'features/nodes/hooks/useFieldTemplateTitle';
 import { fieldLabelChanged } from 'features/nodes/store/nodesSlice';
-import { MouseEvent, memo, useCallback, useEffect, useState } from 'react';
-import FieldTooltipContent from './FieldTooltipContent';
 import { HANDLE_TOOLTIP_OPEN_DELAY } from 'features/nodes/types/constants';
+import type { MouseEvent } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+
+import FieldTooltipContent from './FieldTooltipContent';
 
 interface Props {
   nodeId: string;
   fieldName: string;
-  kind: 'input' | 'output';
-  isMissingInput?: boolean;
+  kind: 'inputs' | 'outputs';
+  isInvalid?: boolean;
   withTooltip?: boolean;
+  shouldDim?: boolean;
 }
 
 const EditableFieldTitle = forwardRef((props: Props, ref) => {
-  const {
-    nodeId,
-    fieldName,
-    kind,
-    isMissingInput = false,
-    withTooltip = false,
-  } = props;
+  const { nodeId, fieldName, kind, isInvalid = false, withTooltip = false, shouldDim = false } = props;
   const label = useFieldLabel(nodeId, fieldName);
   const fieldTemplateTitle = useFieldTemplateTitle(nodeId, fieldName, kind);
   const { t } = useTranslation();
 
   const dispatch = useAppDispatch();
-  const [localTitle, setLocalTitle] = useState(
-    label || fieldTemplateTitle || t('nodes.unknownField')
-  );
+  const [localTitle, setLocalTitle] = useState(label || fieldTemplateTitle || t('nodes.unknownField'));
 
   const handleSubmit = useCallback(
-    async (newTitle: string) => {
-      if (newTitle && (newTitle === label || newTitle === fieldTemplateTitle)) {
-        return;
-      }
-      setLocalTitle(newTitle || fieldTemplateTitle || t('nodes.unknownField'));
-      dispatch(fieldLabelChanged({ nodeId, fieldName, label: newTitle }));
+    (newTitleRaw: string) => {
+      const newTitle = newTitleRaw.trim();
+      const finalTitle = newTitle || fieldTemplateTitle || t('nodes.unknownField');
+      setLocalTitle(finalTitle);
+      dispatch(fieldLabelChanged({ nodeId, fieldName, label: finalTitle }));
     },
-    [label, fieldTemplateTitle, dispatch, nodeId, fieldName, t]
+    [fieldTemplateTitle, dispatch, nodeId, fieldName, t]
   );
 
   const handleChange = useCallback((newTitle: string) => {
@@ -62,76 +57,55 @@ const EditableFieldTitle = forwardRef((props: Props, ref) => {
   }, [label, fieldTemplateTitle, t]);
 
   return (
-    <Tooltip
-      label={
-        withTooltip ? (
-          <FieldTooltipContent
-            nodeId={nodeId}
-            fieldName={fieldName}
-            kind="input"
-          />
-        ) : undefined
-      }
-      openDelay={HANDLE_TOOLTIP_OPEN_DELAY}
-      placement="top"
-      hasArrow
+    <Editable
+      value={localTitle}
+      onChange={handleChange}
+      onSubmit={handleSubmit}
+      as={Flex}
+      ref={ref}
+      position="relative"
+      overflow="hidden"
+      alignItems="center"
+      justifyContent="flex-start"
+      gap={1}
+      w="full"
     >
-      <Flex
-        ref={ref}
-        sx={{
-          position: 'relative',
-          overflow: 'hidden',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          gap: 1,
-          h: 'full',
-        }}
+      <Tooltip
+        label={withTooltip ? <FieldTooltipContent nodeId={nodeId} fieldName={fieldName} kind="inputs" /> : undefined}
+        openDelay={HANDLE_TOOLTIP_OPEN_DELAY}
       >
-        <Editable
-          value={localTitle}
-          onChange={handleChange}
-          onSubmit={handleSubmit}
-          as={Flex}
-          sx={{
-            position: 'relative',
-            alignItems: 'center',
-            h: 'full',
-          }}
-        >
-          <EditablePreview
-            sx={{
-              p: 0,
-              fontWeight: isMissingInput ? 600 : 400,
-              textAlign: 'left',
-              _hover: {
-                fontWeight: '600 !important',
-              },
-            }}
-            noOfLines={1}
-          />
-          <EditableInput
-            className="nodrag"
-            sx={{
-              p: 0,
-              w: 'full',
-              fontWeight: 600,
-              color: 'base.900',
-              _dark: {
-                color: 'base.100',
-              },
-              _focusVisible: {
-                p: 0,
-                textAlign: 'left',
-                boxShadow: 'none',
-              },
-            }}
-          />
-          <EditableControls />
-        </Editable>
-      </Flex>
-    </Tooltip>
+        <EditablePreview
+          fontWeight="semibold"
+          sx={editablePreviewStyles}
+          noOfLines={1}
+          color={isInvalid ? 'error.300' : 'base.300'}
+          opacity={shouldDim ? 0.5 : 1}
+        />
+      </Tooltip>
+      <EditableInput className="nodrag" sx={editableInputStyles} />
+      <EditableControls />
+    </Editable>
   );
 });
+
+const editableInputStyles: SystemStyleObject = {
+  p: 0,
+  w: 'full',
+  fontWeight: 'semibold',
+  color: 'base.100',
+  _focusVisible: {
+    p: 0,
+    textAlign: 'left',
+    boxShadow: 'none',
+  },
+};
+const editablePreviewStyles: SystemStyleObject = {
+  p: 0,
+  textAlign: 'left',
+  _hover: {
+    fontWeight: 'semibold !important',
+  },
+};
 
 export default memo(EditableFieldTitle);
 
@@ -157,7 +131,7 @@ const EditableControls = memo(() => {
     <Flex
       onClick={handleClick}
       position="absolute"
-      w="full"
+      w="min-content"
       h="full"
       top={0}
       insetInlineStart={0}

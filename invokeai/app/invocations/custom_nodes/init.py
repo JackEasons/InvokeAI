@@ -3,10 +3,10 @@ Invoke-managed custom node loader. See README.md for more information.
 """
 
 import sys
+import traceback
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
 
-from invokeai.app.invocations.baseinvocation import CUSTOM_NODE_PACK_SUFFIX
 from invokeai.backend.util.logging import InvokeAILogger
 
 logger = InvokeAILogger.get_logger()
@@ -34,7 +34,7 @@ for d in Path(__file__).parent.iterdir():
         continue
 
     # load the module, appending adding a suffix to identify it as a custom node pack
-    spec = spec_from_file_location(f"{module_name}{CUSTOM_NODE_PACK_SUFFIX}", init.absolute())
+    spec = spec_from_file_location(module_name, init.absolute())
 
     if spec is None or spec.loader is None:
         logger.warn(f"Could not load {init}")
@@ -42,11 +42,15 @@ for d in Path(__file__).parent.iterdir():
 
     logger.info(f"Loading node pack {module_name}")
 
-    module = module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    try:
+        module = module_from_spec(spec)
+        sys.modules[spec.name] = module
+        spec.loader.exec_module(module)
 
-    loaded_count += 1
+        loaded_count += 1
+    except Exception:
+        full_error = traceback.format_exc()
+        logger.error(f"Failed to load node pack {module_name}:\n{full_error}")
 
     del init, module_name
 

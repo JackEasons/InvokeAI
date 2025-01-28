@@ -1,23 +1,35 @@
-import { Flex } from '@chakra-ui/react';
-import QueueControls from 'features/queue/components/QueueControls';
-import ResizeHandle from 'features/ui/components/tabs/ResizeHandle';
-import { usePanelStorage } from 'features/ui/hooks/usePanelStorage';
-import { memo, useCallback, useRef, useState } from 'react';
-import {
-  ImperativePanelGroupHandle,
-  Panel,
-  PanelGroup,
-} from 'react-resizable-panels';
 import 'reactflow/dist/style.css';
+
+import { Box, Flex } from '@invoke-ai/ui-library';
+import { useAppSelector } from 'app/store/storeHooks';
+import { overlayScrollbarsParams } from 'common/components/OverlayScrollbars/constants';
+import { useWorkflowListMenu } from 'features/nodes/store/workflowListMenu';
+import { selectWorkflowMode } from 'features/nodes/store/workflowSlice';
+import ResizeHandle from 'features/ui/components/tabs/ResizeHandle';
+import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
+import type { CSSProperties } from 'react';
+import { memo, useCallback, useRef } from 'react';
+import type { ImperativePanelGroupHandle } from 'react-resizable-panels';
+import { Panel, PanelGroup } from 'react-resizable-panels';
+
 import InspectorPanel from './inspector/InspectorPanel';
+import { WorkflowViewMode } from './viewMode/WorkflowViewMode';
 import WorkflowPanel from './workflow/WorkflowPanel';
-import ParamIterations from 'features/parameters/components/Parameters/Core/ParamIterations';
+import { WorkflowListMenu } from './WorkflowListMenu/WorkflowListMenu';
+import { WorkflowListMenuTrigger } from './WorkflowListMenu/WorkflowListMenuTrigger';
+
+const panelGroupStyles: CSSProperties = { height: '100%', width: '100%' };
+
+const overlayScrollbarsStyles: CSSProperties = {
+  height: '100%',
+  width: '100%',
+};
 
 const NodeEditorPanelGroup = () => {
-  const [isTopPanelCollapsed, setIsTopPanelCollapsed] = useState(false);
-  const [isBottomPanelCollapsed, setIsBottomPanelCollapsed] = useState(false);
+  const mode = useAppSelector(selectWorkflowMode);
   const panelGroupRef = useRef<ImperativePanelGroupHandle>(null);
-  const panelStorage = usePanelStorage();
+  const workflowListMenu = useWorkflowListMenu();
+
   const handleDoubleClickHandle = useCallback(() => {
     if (!panelGroupRef.current) {
       return;
@@ -26,58 +38,40 @@ const NodeEditorPanelGroup = () => {
   }, []);
 
   return (
-    <Flex sx={{ flexDir: 'column', gap: 2, height: '100%', width: '100%' }}>
-      <QueueControls />
-      <Flex
-        layerStyle="first"
-        sx={{
-          w: 'full',
-          position: 'relative',
-          borderRadius: 'base',
-          p: 2,
-          pb: 3,
-          gap: 2,
-          flexDir: 'column',
-        }}
-      >
-        <ParamIterations asSlider />
+    <Flex w="full" h="full" gap={2} flexDir="column">
+      <WorkflowListMenuTrigger />
+      <Flex w="full" h="full" position="relative">
+        <Box position="absolute" top={0} left={0} right={0} bottom={0}>
+          {workflowListMenu.isOpen && (
+            <OverlayScrollbarsComponent defer style={overlayScrollbarsStyles} options={overlayScrollbarsParams.options}>
+              <Flex gap={2} flexDirection="column" h="full" w="full">
+                <WorkflowListMenu />
+              </Flex>
+            </OverlayScrollbarsComponent>
+          )}
+
+          <OverlayScrollbarsComponent defer style={overlayScrollbarsStyles} options={overlayScrollbarsParams.options}>
+            {mode === 'view' && <WorkflowViewMode />}
+            {mode === 'edit' && (
+              <PanelGroup
+                ref={panelGroupRef}
+                id="workflow-panel-group"
+                autoSaveId="workflow-panel-group"
+                direction="vertical"
+                style={panelGroupStyles}
+              >
+                <Panel id="workflow" collapsible minSize={25}>
+                  <WorkflowPanel />
+                </Panel>
+                <ResizeHandle onDoubleClick={handleDoubleClickHandle} />
+                <Panel id="inspector" collapsible minSize={25}>
+                  <InspectorPanel />
+                </Panel>
+              </PanelGroup>
+            )}
+          </OverlayScrollbarsComponent>
+        </Box>
       </Flex>
-      <PanelGroup
-        ref={panelGroupRef}
-        id="workflow-panel-group"
-        autoSaveId="workflow-panel-group"
-        direction="vertical"
-        style={{ height: '100%', width: '100%' }}
-        storage={panelStorage}
-      >
-        <Panel
-          id="workflow"
-          collapsible
-          onCollapse={setIsTopPanelCollapsed}
-          minSize={25}
-        >
-          <WorkflowPanel />
-        </Panel>
-        <ResizeHandle
-          direction="vertical"
-          onDoubleClick={handleDoubleClickHandle}
-          collapsedDirection={
-            isTopPanelCollapsed
-              ? 'top'
-              : isBottomPanelCollapsed
-              ? 'bottom'
-              : undefined
-          }
-        />
-        <Panel
-          id="inspector"
-          collapsible
-          onCollapse={setIsBottomPanelCollapsed}
-          minSize={25}
-        >
-          <InspectorPanel />
-        </Panel>
-      </PanelGroup>
     </Flex>
   );
 };
