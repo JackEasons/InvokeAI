@@ -1,46 +1,69 @@
-import { Flex, Grid } from '@chakra-ui/react';
-import { useStore } from '@nanostores/react';
+import { Box, useGlobalModifiersInit } from '@invoke-ai/ui-library';
+import { GlobalImageHotkeys } from 'app/components/GlobalImageHotkeys';
+import type { StudioInitAction } from 'app/hooks/useStudioInitAction';
+import { useStudioInitAction } from 'app/hooks/useStudioInitAction';
+import { useSyncQueueStatus } from 'app/hooks/useSyncQueueStatus';
 import { useLogger } from 'app/logging/useLogger';
+import { useSyncLoggingConfig } from 'app/logging/useSyncLoggingConfig';
 import { appStarted } from 'app/store/middleware/listenerMiddleware/listeners/appStarted';
-import { $headerComponent } from 'app/store/nanostores/headerComponent';
 import { useAppDispatch, useAppSelector } from 'app/store/storeHooks';
-import { PartialAppConfig } from 'app/types/invokeai';
-import ImageUploader from 'common/components/ImageUploader';
+import type { PartialAppConfig } from 'app/types/invokeai';
+import { useFocusRegionWatcher } from 'common/hooks/focus';
+import { useClearStorage } from 'common/hooks/useClearStorage';
+import { useGlobalHotkeys } from 'common/hooks/useGlobalHotkeys';
 import ChangeBoardModal from 'features/changeBoardModal/components/ChangeBoardModal';
+import { CanvasPasteModal } from 'features/controlLayers/components/CanvasPasteModal';
+import {
+  NewCanvasSessionDialog,
+  NewGallerySessionDialog,
+} from 'features/controlLayers/components/NewSessionConfirmationAlertDialog';
+import { CanvasManagerProviderGate } from 'features/controlLayers/contexts/CanvasManagerProviderGate';
 import DeleteImageModal from 'features/deleteImageModal/components/DeleteImageModal';
-import SiteHeader from 'features/system/components/SiteHeader';
+import { FullscreenDropzone } from 'features/dnd/FullscreenDropzone';
+import { DynamicPromptsModal } from 'features/dynamicPrompts/components/DynamicPromptsPreviewModal';
+import DeleteBoardModal from 'features/gallery/components/Boards/DeleteBoardModal';
+import { ImageContextMenu } from 'features/gallery/components/ImageContextMenu/ImageContextMenu';
+import { useStarterModelsToast } from 'features/modelManagerV2/hooks/useStarterModelsToast';
+import { ShareWorkflowModal } from 'features/nodes/components/sidePanel/WorkflowListMenu/ShareWorkflowModal';
+import { CancelAllExceptCurrentQueueItemConfirmationAlertDialog } from 'features/queue/components/CancelAllExceptCurrentQueueItemConfirmationAlertDialog';
+import { ClearQueueConfirmationsAlertDialog } from 'features/queue/components/ClearQueueConfirmationAlertDialog';
+import { DeleteStylePresetDialog } from 'features/stylePresets/components/DeleteStylePresetDialog';
+import { StylePresetModal } from 'features/stylePresets/components/StylePresetForm/StylePresetModal';
+import RefreshAfterResetModal from 'features/system/components/SettingsModal/RefreshAfterResetModal';
+import { VideosModal } from 'features/system/components/VideosModal/VideosModal';
 import { configChanged } from 'features/system/store/configSlice';
-import { languageSelector } from 'features/system/store/systemSelectors';
-import InvokeTabs from 'features/ui/components/InvokeTabs';
+import { selectLanguage } from 'features/system/store/systemSelectors';
+import { AppContent } from 'features/ui/components/AppContent';
+import { DeleteWorkflowDialog } from 'features/workflowLibrary/components/DeleteLibraryWorkflowConfirmationAlertDialog';
+import { NewWorkflowConfirmationAlertDialog } from 'features/workflowLibrary/components/NewWorkflowConfirmationAlertDialog';
 import i18n from 'i18n';
 import { size } from 'lodash-es';
 import { memo, useCallback, useEffect } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
+import { useGetOpenAPISchemaQuery } from 'services/api/endpoints/appInfo';
+import { useSocketIO } from 'services/events/useSocketIO';
+
 import AppErrorBoundaryFallback from './AppErrorBoundaryFallback';
-import GlobalHotkeys from './GlobalHotkeys';
-import PreselectedImage from './PreselectedImage';
-import Toaster from './Toaster';
-import { useSocketIO } from 'app/hooks/useSocketIO';
-import { useClearStorage } from 'common/hooks/useClearStorage';
 
 const DEFAULT_CONFIG = {};
 
 interface Props {
   config?: PartialAppConfig;
-  selectedImage?: {
-    imageName: string;
-    action: 'sendToImg2Img' | 'sendToCanvas' | 'useAllParameters';
-  };
+  studioInitAction?: StudioInitAction;
 }
 
-const App = ({ config = DEFAULT_CONFIG, selectedImage }: Props) => {
-  const language = useAppSelector(languageSelector);
+const App = ({ config = DEFAULT_CONFIG, studioInitAction }: Props) => {
+  const language = useAppSelector(selectLanguage);
   const logger = useLogger('system');
   const dispatch = useAppDispatch();
   const clearStorage = useClearStorage();
 
   // singleton!
   useSocketIO();
+  useGlobalModifiersInit();
+  useGlobalHotkeys();
+  useGetOpenAPISchemaQuery();
+  useSyncLoggingConfig();
 
   const handleReset = useCallback(() => {
     clearStorage();
@@ -63,42 +86,37 @@ const App = ({ config = DEFAULT_CONFIG, selectedImage }: Props) => {
     dispatch(appStarted());
   }, [dispatch]);
 
-  const headerComponent = useStore($headerComponent);
+  useStudioInitAction(studioInitAction);
+  useStarterModelsToast();
+  useSyncQueueStatus();
+  useFocusRegionWatcher();
 
   return (
-    <ErrorBoundary
-      onReset={handleReset}
-      FallbackComponent={AppErrorBoundaryFallback}
-    >
-      <Grid w="100vw" h="100vh" position="relative" overflow="hidden">
-        <ImageUploader>
-          <Grid
-            sx={{
-              gap: 4,
-              p: 4,
-              gridAutoRows: 'min-content auto',
-              w: 'full',
-              h: 'full',
-            }}
-          >
-            {headerComponent || <SiteHeader />}
-            <Flex
-              sx={{
-                gap: 4,
-                w: 'full',
-                h: 'full',
-              }}
-            >
-              <InvokeTabs />
-            </Flex>
-          </Grid>
-        </ImageUploader>
-      </Grid>
+    <ErrorBoundary onReset={handleReset} FallbackComponent={AppErrorBoundaryFallback}>
+      <Box id="invoke-app-wrapper" w="100dvw" h="100dvh" position="relative" overflow="hidden">
+        <AppContent />
+      </Box>
       <DeleteImageModal />
       <ChangeBoardModal />
-      <Toaster />
-      <GlobalHotkeys />
-      <PreselectedImage selectedImage={selectedImage} />
+      <DynamicPromptsModal />
+      <StylePresetModal />
+      <CancelAllExceptCurrentQueueItemConfirmationAlertDialog />
+      <ClearQueueConfirmationsAlertDialog />
+      <NewWorkflowConfirmationAlertDialog />
+      <DeleteStylePresetDialog />
+      <DeleteWorkflowDialog />
+      <ShareWorkflowModal />
+      <RefreshAfterResetModal />
+      <DeleteBoardModal />
+      <GlobalImageHotkeys />
+      <NewGallerySessionDialog />
+      <NewCanvasSessionDialog />
+      <ImageContextMenu />
+      <FullscreenDropzone />
+      <VideosModal />
+      <CanvasManagerProviderGate>
+        <CanvasPasteModal />
+      </CanvasManagerProviderGate>
     </ErrorBoundary>
   );
 };
