@@ -1,24 +1,22 @@
 import { logger } from 'app/logging/logger';
+import type { AppStartListening } from 'app/store/middleware/listenerMiddleware';
 import { updateAllNodesRequested } from 'features/nodes/store/actions';
-import { nodeReplaced } from 'features/nodes/store/nodesSlice';
-import {
-  getNeedsUpdate,
-  updateNode,
-} from 'features/nodes/util/node/nodeUpdate';
+import { $templates, nodesChanged } from 'features/nodes/store/nodesSlice';
+import { selectNodes } from 'features/nodes/store/selectors';
 import { NodeUpdateError } from 'features/nodes/types/error';
 import { isInvocationNode } from 'features/nodes/types/invocation';
-import { addToast } from 'features/system/store/systemSlice';
-import { makeToast } from 'features/system/util/makeToast';
+import { getNeedsUpdate, updateNode } from 'features/nodes/util/node/nodeUpdate';
+import { toast } from 'features/toast/toast';
 import { t } from 'i18next';
-import { startAppListening } from '..';
 
-export const addUpdateAllNodesRequestedListener = () => {
+const log = logger('workflows');
+
+export const addUpdateAllNodesRequestedListener = (startAppListening: AppStartListening) => {
   startAppListening({
     actionCreator: updateAllNodesRequested,
     effect: (action, { dispatch, getState }) => {
-      const log = logger('nodes');
-      const nodes = getState().nodes.nodes;
-      const templates = getState().nodes.nodeTemplates;
+      const nodes = selectNodes(getState());
+      const templates = $templates.get();
 
       let unableToUpdateCount = 0;
 
@@ -28,13 +26,18 @@ export const addUpdateAllNodesRequestedListener = () => {
           unableToUpdateCount++;
           return;
         }
-        if (!getNeedsUpdate(node, template)) {
+        if (!getNeedsUpdate(node.data, template)) {
           // No need to increment the count here, since we're not actually updating
           return;
         }
         try {
           const updatedNode = updateNode(node, template);
-          dispatch(nodeReplaced({ nodeId: updatedNode.id, node: updatedNode }));
+          dispatch(
+            nodesChanged([
+              { type: 'remove', id: updatedNode.id },
+              { type: 'add', item: updatedNode },
+            ])
+          );
         } catch (e) {
           if (e instanceof NodeUpdateError) {
             unableToUpdateCount++;
@@ -48,24 +51,18 @@ export const addUpdateAllNodesRequestedListener = () => {
             count: unableToUpdateCount,
           })
         );
-        dispatch(
-          addToast(
-            makeToast({
-              title: t('nodes.unableToUpdateNodes', {
-                count: unableToUpdateCount,
-              }),
-            })
-          )
-        );
+        toast({
+          id: 'UNABLE_TO_UPDATE_NODES',
+          title: t('nodes.unableToUpdateNodes', {
+            count: unableToUpdateCount,
+          }),
+        });
       } else {
-        dispatch(
-          addToast(
-            makeToast({
-              title: t('nodes.allNodesUpdated'),
-              status: 'success',
-            })
-          )
-        );
+        toast({
+          id: 'ALL_NODES_UPDATED',
+          title: t('nodes.allNodesUpdated'),
+          status: 'success',
+        });
       }
     },
   });
